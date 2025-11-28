@@ -611,7 +611,192 @@ The JavaFX app handles:
 
 ---
 
-# **10. Future Enhancements (Post-MVP)**
+# **10. Distribution Channels**
+
+The Rust CLI enables multiple distribution paths. The goal is **one canonical binary** distributed through various channels.
+
+## **10.1 Primary: karate.sh (Universal Installer)**
+
+Own the install experience with `karate.sh`:
+
+**Unix/macOS:**
+```bash
+curl -fsSL https://karate.sh | sh
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://karate.sh/install.ps1 | iex
+```
+
+**Why this is the primary channel:**
+- Full control over install experience
+- Works everywhere (curl/PowerShell are universal)
+- Can include telemetry, version selection, PATH setup
+- Single URL to remember and document
+- No approval process or third-party dependencies
+
+**Implementation:**
+- `karate.sh` serves a shell script that detects OS/arch
+- Downloads the correct binary from GitHub releases
+- Optionally runs `karate setup --yes` for full bootstrap
+- Provides clear instructions for PATH setup
+
+## **10.2 npm Package**
+
+Replace the brittle JBang-based `karate-npm` with a thin wrapper around the Rust binary.
+
+**Current problems with karate-npm:**
+- Triple wrapper: npm → Node.js → shelljs → JBang → Maven → JVM
+- Windows silent failures (PowerShell execution policies, temp files)
+- JBang dependency with its own bugs and JRE management
+- shelljs fragility that swallows errors
+
+**New approach:**
+```
+npm install -g karate
+    ↓
+postinstall downloads platform-specific Rust binary
+    ↓
+npm bin → karate (Rust) → JRE/JAR (managed by Rust)
+```
+
+**Package structure:**
+```
+karate-npm/
+├── package.json          # npm package definition
+├── postinstall.js        # Downloads Rust binary for platform
+├── bin/
+│   ├── karate            # Unix stub script
+│   └── karate.cmd        # Windows stub script
+└── dist/                 # Downloaded binaries (gitignored)
+    └── karate-{platform} # Platform-specific Rust binary
+```
+
+**postinstall.js responsibilities:**
+1. Detect OS/arch (darwin-arm64, darwin-x64, linux-x64, win32-x64, etc.)
+2. Download matching Rust binary from GitHub releases
+3. Verify SHA256 checksum
+4. Make executable (Unix)
+5. First run triggers `karate setup --yes` for JRE/JAR bootstrap
+
+**User experience:**
+```bash
+npm install -g karate
+karate setup      # First-time JRE/JAR download
+karate run my.feature
+```
+
+## **10.3 Package Managers (Secondary)**
+
+These require maintenance effort but increase discoverability:
+
+| Channel | Effort | Value | Priority |
+|---------|--------|-------|----------|
+| **Homebrew** | Medium | High (macOS devs) | P1 |
+| **Chocolatey** | Medium | High (Windows devs) | P1 |
+| **Scoop** | Low | Medium (Windows) | P2 |
+| **apt/deb** | High | Medium (Linux) | P3 |
+| **rpm** | High | Low | P3 |
+| **Cargo** | Low | Low (Rust devs only) | P4 |
+
+**Homebrew formula (example):**
+```ruby
+class Karate < Formula
+  desc "Karate - API testing framework CLI"
+  homepage "https://karatelabs.io"
+  url "https://github.com/karatelabs/karate-cli/releases/download/v2.0.0/karate-darwin-arm64.tar.gz"
+  sha256 "..."
+
+  def install
+    bin.install "karate"
+  end
+
+  def post_install
+    system "#{bin}/karate", "setup", "--yes"
+  end
+end
+```
+
+**Chocolatey package (example):**
+```powershell
+$packageArgs = @{
+  packageName   = 'karate'
+  url64bit      = 'https://github.com/karatelabs/karate-cli/releases/download/v2.0.0/karate-windows-x64.zip'
+  checksum64    = '...'
+  unzipLocation = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
+}
+Install-ChocolateyZipPackage @packageArgs
+```
+
+## **10.4 Recommended Strategy**
+
+**Phase 1 (MVP):**
+1. ✅ GitHub releases with binaries for all platforms
+2. 🔲 `karate.sh` universal installer
+3. 🔲 npm package (replace karate-npm)
+
+**Phase 2 (Adoption):**
+4. 🔲 Homebrew formula (tap first, then core)
+5. 🔲 Chocolatey package
+6. 🔲 Scoop manifest
+
+**Phase 3 (Completeness):**
+7. 🔲 Docker images
+8. 🔲 Linux packages (deb/rpm) if demand exists
+
+## **10.5 Why karate.sh is Enough for Most Users**
+
+| User Type | Best Channel |
+|-----------|--------------|
+| Quick start / tutorials | `karate.sh` |
+| Node.js projects | npm |
+| macOS power users | Homebrew |
+| Windows enterprises | Chocolatey |
+| CI/CD pipelines | `karate.sh` or Docker |
+| Air-gapped networks | Direct binary download |
+
+The `karate.sh` approach (like `rustup.sh`, `get.docker.com`) is battle-tested and works for 80%+ of users without requiring package manager submissions.
+
+---
+
+# **11. Replacing karate-npm**
+
+The existing `karate-npm` package wraps JBang, which itself wraps Maven and manages JRE. This creates a fragile chain:
+
+```
+npm → Node.js (karate.js) → shelljs → JBang → Maven → JVM
+```
+
+**Known issues:**
+- Windows silent failures (PowerShell execution policies, temp file creation)
+- JBang is another dependency with its own bugs and update cycle
+- shelljs swallows errors, making debugging difficult
+- No visibility into JRE management
+- Complex fallback mechanisms that fail silently
+
+**New architecture:**
+```
+npm → postinstall.js → downloads Rust binary
+npm bin/karate → Rust CLI → JRE/JAR (self-managed)
+```
+
+**Benefits:**
+- Single native binary, no runtime dependencies
+- Explicit error messages with proper exit codes
+- User-visible JRE management (`karate jre list`, `karate doctor`)
+- Works offline after initial setup
+- Same binary whether installed via npm, curl, or Homebrew
+
+**Migration path:**
+1. Publish new `karate` package (version 2.0.0+)
+2. Deprecate old JBang-based approach
+3. Users run `npm update -g karate` to get new version
+4. First run prompts `karate setup` for JRE/JAR download
+
+---
+
+# **12. Future Enhancements (Post-MVP)**
 
 * `karate lock` → freeze exact versions + checksums in project
 * Shell completions (bash, zsh, fish, PowerShell)
@@ -624,7 +809,7 @@ The JavaFX app handles:
 
 ---
 
-# **11. Summary**
+# **13. Summary**
 
 The Rust-based Karate CLI Launcher gives us:
 

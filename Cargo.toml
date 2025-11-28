@@ -1,0 +1,68 @@
+[package]
+name = "karate-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Karate command-line"
+license = "MIT"
+repository = "https://github.com/karatelabs/karate-cli"
+keywords = ["karate", "testing", "api", "cli"]
+categories = ["command-line-utilities", "development-tools::testing"]
+
+[[bin]]
+name = "karate"
+path = "src/main.rs"
+
+[dependencies]
+# CLI parsing
+clap = { version = "4", features = ["derive", "env", "string"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "stream"] }
+
+# JSON/Config
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# File system
+dirs = "5"
+
+# Checksums
+sha2 = "0.10"
+hex = "0.4"
+
+# Progress bars and terminal UI
+indicatif = "0.17"
+console = "0.15"
+
+# Compression (for JRE archives)
+flate2 = "1"
+tar = "0.4"
+zip = "2"
+
+# Async utilities
+futures-util = "0.3"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Platform detection
+cfg-if = "1"
+
+[dev-dependencies]
+tempfile = "3"
+assert_cmd = "2"
+predicates = "3"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+panic = "abort"

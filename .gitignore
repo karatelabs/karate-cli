@@ -1,0 +1,33 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Test artifacts
+*.log
+/test-output/
+
+# Local development
+.env
+.env.local
+/home/
+
+# Coverage
+*.profraw
+*.profdata
+/coverage/
+
+# Release artifacts
+/dist/
+*.tar.gz
+*.zip

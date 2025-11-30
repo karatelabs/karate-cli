@@ -193,6 +193,35 @@
             color: var(--text);
         }
 
+        .more-options {
+            margin-top: 1rem;
+        }
+
+        .more-options summary {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .more-options summary:hover {
+            color: var(--text);
+        }
+
+        .more-options-content {
+            margin-top: 1rem;
+        }
+
+        .more-options-content .code-block {
+            margin-bottom: 0.75rem;
+        }
+
+        .more-options-content .option-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
         @media (max-width: 600px) {
             .code-block {
                 flex-direction: column;
@@ -224,13 +253,16 @@
                 <code>curl -fsSL https://karate.sh/install.sh | sh</code>
                 <button class="copy-btn" onclick="copyToClipboard('curl -fsSL https://karate.sh/install.sh | sh', this)">Copy</button>
             </div>
-
-            <div class="divider"><span>or with auto-setup</span></div>
-
-            <div class="code-block">
-                <code>curl -fsSL https://karate.sh/install.sh | sh -s -- --yes</code>
-                <button class="copy-btn" onclick="copyToClipboard('curl -fsSL https://karate.sh/install.sh | sh -s -- --yes', this)">Copy</button>
-            </div>
+            <details class="more-options">
+                <summary>More options</summary>
+                <div class="more-options-content">
+                    <p class="option-label">With auto-setup (downloads JRE + JAR immediately):</p>
+                    <div class="code-block">
+                        <code>curl -fsSL https://karate.sh/install.sh | sh -s -- --yes</code>
+                        <button class="copy-btn" onclick="copyToClipboard('curl -fsSL https://karate.sh/install.sh | sh -s -- --yes', this)">Copy</button>
+                    </div>
+                </div>
+            </details>
         </div>
 
         <div class="install-section">
@@ -239,6 +271,16 @@
                 <code>irm https://karate.sh/install.ps1 | iex</code>
                 <button class="copy-btn" onclick="copyToClipboard('irm https://karate.sh/install.ps1 | iex', this)">Copy</button>
             </div>
+            <details class="more-options">
+                <summary>More options</summary>
+                <div class="more-options-content">
+                    <p class="option-label">With auto-setup (downloads JRE + JAR immediately):</p>
+                    <div class="code-block">
+                        <code>iex "& { $(irm https://karate.sh/install.ps1) } -Yes"</code>
+                        <button class="copy-btn" onclick="copyToClipboard('iex \"& { $(irm https://karate.sh/install.ps1) } -Yes\"', this)">Copy</button>
+                    </div>
+                </div>
+            </details>
         </div>
 
         <div class="features">

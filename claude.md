@@ -4,7 +4,7 @@
 
 1. **NEVER delete `~/.karate` folder** - It contains `uuid.txt` and `karate.lic` for license management. Only delete specific subdirectories like `~/.karate/jre/*` when needed.
 
-2. **Use `./home` for development testing** - This git-ignored folder simulates `~/.karate` for local development. Set `KARATE_HOME=./home` when testing.
+2. **Use `./home/.karate` for development testing** - The git-ignored `./home` folder simulates a realistic project directory with `src/`, feature files, and a `.karate` subfolder. Set `KARATE_HOME=./home/.karate` when testing.
 
 ## Project Context
 
@@ -36,9 +36,9 @@ This allows projects to override specific resources (e.g., local extensions) whi
 
 ```bash
 # Use local home for development (overrides global entirely)
-KARATE_HOME=./home cargo run -- setup
-KARATE_HOME=./home cargo run -- doctor
-KARATE_HOME=./home cargo run -- run --help
+KARATE_HOME=./home/.karate cargo run -- setup
+KARATE_HOME=./home/.karate cargo run -- doctor
+KARATE_HOME=./home/.karate cargo run -- run --help
 
 # Test with local .karate override
 mkdir -p .karate/ext

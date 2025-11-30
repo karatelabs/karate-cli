@@ -1,0 +1,31 @@
+# AWS Amplify Custom Rewrites/Redirects
+# Note: This file documents the configuration needed in Amplify Console
+# You must add these rules manually in: Amplify > App > Rewrites and redirects
+
+# Rule 1: Serve install.sh when curl requests the root
+# Source: /
+# Target: /install.sh
+# Type: 200 (Rewrite)
+# Condition: <user-agent contains="curl">
+
+# Rule 2: Serve install.sh when wget requests the root
+# Source: /
+# Target: /install.sh
+# Type: 200 (Rewrite)
+# Condition: <user-agent contains="Wget">
+
+# The Amplify Console JSON format for these rules:
+# [
+#   {
+#     "source": "/",
+#     "target": "/install.sh",
+#     "status": "200",
+#     "condition": "user-agent~=curl"
+#   },
+#   {
+#     "source": "/",
+#     "target": "/install.sh",
+#     "status": "200",
+#     "condition": "user-agent~=Wget"
+#   }
+# ]

@@ -404,7 +404,7 @@ Karate CLI uses a two-level resolution for resources (dist, jre, ext):
 
 This allows:
 - Project-specific extensions without duplicating JRE/JAR
-- Development testing with `KARATE_HOME=./home`
+- Development testing with `KARATE_HOME=./home/.karate`
 - Pinning specific Karate versions per project (via local dist/)
 - Standard user-level installation at `~/.karate`
 

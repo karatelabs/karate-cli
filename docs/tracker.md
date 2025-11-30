@@ -188,10 +188,10 @@
 ## Testing Notes
 
 ```bash
-# Development testing (uses ./home instead of ~/.karate)
-KARATE_HOME=./home cargo run -- setup
-KARATE_HOME=./home cargo run -- doctor
-KARATE_HOME=./home cargo run -- run --help
+# Development testing (uses ./home/.karate instead of ~/.karate)
+KARATE_HOME=./home/.karate cargo run -- setup
+KARATE_HOME=./home/.karate cargo run -- doctor
+KARATE_HOME=./home/.karate cargo run -- run --help
 
 # Test with local .karate override
 mkdir -p .karate/ext

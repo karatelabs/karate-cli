@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Karate Unified Installer</title>
     <meta name="description" content="Karate CLI - API testing made simple">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <style>
         :root {
             --primary: #4f46e5;
@@ -222,6 +223,54 @@
             margin-bottom: 0.5rem;
         }
 
+        .other-platforms {
+            margin-bottom: 2rem;
+        }
+
+        .other-platforms > summary {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 1.5rem 2rem;
+            color: var(--text-muted);
+            font-size: 1rem;
+            cursor: pointer;
+            user-select: none;
+            list-style: none;
+            transition: color 0.2s;
+        }
+
+        .other-platforms > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .other-platforms > summary:hover {
+            color: var(--text);
+        }
+
+        .other-platforms[open] > summary {
+            border-radius: 12px 12px 0 0;
+        }
+
+        .other-platforms-content {
+            background: var(--surface);
+            border-radius: 0 0 12px 12px;
+            padding: 0 2rem 1.5rem 2rem;
+        }
+
+        .other-platforms .install-section {
+            margin-bottom: 0;
+            padding: 0;
+            background: none;
+        }
+
+        .other-platforms .install-section h2 {
+            display: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
         @media (max-width: 600px) {
             .code-block {
                 flex-direction: column;
@@ -247,7 +296,7 @@
             </div>
         </div>
 
-        <div class="install-section">
+        <div id="install-unix" class="install-section">
             <h2>macOS / Linux</h2>
             <div class="code-block">
                 <code>curl -fsSL https://karate.sh/install.sh | sh</code>
@@ -265,7 +314,7 @@
             </details>
         </div>
 
-        <div class="install-section">
+        <div id="install-windows" class="install-section">
             <h2>Windows (PowerShell)</h2>
             <div class="code-block">
                 <code>irm https://karate.sh/install.ps1 | iex</code>
@@ -283,6 +332,11 @@
             </details>
         </div>
 
+        <details id="other-platforms" class="other-platforms">
+            <summary></summary>
+            <div id="other-platforms-content" class="other-platforms-content"></div>
+        </details>
+
         <div class="features">
             <div class="feature">
                 <h3>🚀 Zero Dependencies</h3>
@@ -299,9 +353,8 @@
         </div>
 
         <div class="links">            
-            <a href="https://docs.karatelabs.io">Documentation</a>
-            <a href="https://github.com/karatelabs/karate-cli">GitHub</a>
-            <a href="https://karatelabs.io">Karate Labs</a>
+            <a href="https://docs.karatelabs.io">Karate Documentation</a>
+            <a href="https://github.com/karatelabs/karate-cli">Installer GitHub</a>
         </div>
     </div>
 
@@ -317,6 +370,42 @@
                 }, 2000);
             });
         }
+
+        function detectOS() {
+            // For testing: add ?os=windows or ?os=unix to URL
+            const params = new URLSearchParams(window.location.search);
+            const override = params.get('os');
+            if (override === 'windows' || override === 'unix') return override;
+
+            const ua = navigator.userAgent.toLowerCase();
+            if (ua.includes('win')) return 'windows';
+            return 'unix'; // macOS, Linux, and others default to unix
+        }
+
+        function setupPlatformSections() {
+            const os = detectOS();
+            const unixSection = document.getElementById('install-unix');
+            const windowsSection = document.getElementById('install-windows');
+            const otherPlatforms = document.getElementById('other-platforms');
+            const otherContent = document.getElementById('other-platforms-content');
+            const otherSummary = otherPlatforms.querySelector('summary');
+
+            if (os === 'windows') {
+                // Show Windows first, move Unix to "other platforms"
+                unixSection.classList.add('hidden');
+                otherContent.appendChild(unixSection.cloneNode(true));
+                otherContent.querySelector('.install-section').classList.remove('hidden');
+                otherSummary.textContent = 'macOS / Linux';
+            } else {
+                // Show Unix first, move Windows to "other platforms"
+                windowsSection.classList.add('hidden');
+                otherContent.appendChild(windowsSection.cloneNode(true));
+                otherContent.querySelector('.install-section').classList.remove('hidden');
+                otherSummary.textContent = 'Windows (PowerShell)';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', setupPlatformSections);
     </script>
 </body>
 </html>

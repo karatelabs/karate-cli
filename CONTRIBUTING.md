@@ -143,4 +143,4 @@ irm https://karate.sh/install.ps1 | iex
 
 - **Never delete `~/.karate`** - Contains license files (`uuid.txt`, `karate.lic`)
 - **Use `KARATE_HOME=./home/.karate`** for local development testing
-- **Binaries are ~15MB** due to static linking (expected)
+- **Binaries are ~2MB** compressed, ~3.5MB uncompressed

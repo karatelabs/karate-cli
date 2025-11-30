@@ -3,21 +3,18 @@ frontend:
   phases:
     build:
       commands:
-        # No build needed - static files only
         - echo "Static site - no build required"
   artifacts:
-    baseDirectory: /
+    baseDirectory: aws-amplify
     files:
       - '**/*'
   customHeaders:
-    # Serve install.sh as plain text for curl
     - pattern: 'install.sh'
       headers:
         - key: Content-Type
           value: text/plain; charset=utf-8
         - key: Cache-Control
           value: no-cache, no-store, must-revalidate
-    # Serve install.ps1 as plain text for PowerShell
     - pattern: 'install.ps1'
       headers:
         - key: Content-Type

@@ -18,7 +18,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Setup Karate (JAR only, use system JRE)
-        run: karate setup path --yes
+        run: karate setup path
 
       - name: Verify installation (system JRE)
         run: |
@@ -34,7 +34,7 @@ jobs:
           echo "Exit code: $?"
 
       - name: Setup managed JRE
-        run: karate setup jre --yes
+        run: karate setup jre
 
       - name: Verify installation (managed JRE)
         env:
@@ -63,7 +63,7 @@ jobs:
           echo "$InstallDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Setup Karate (JAR only, use system JRE)
-        run: karate setup path --yes
+        run: karate setup path
 
       - name: Verify installation (system JRE)
         run: |
@@ -79,7 +79,7 @@ jobs:
           echo "Exit code: $LASTEXITCODE"
 
       - name: Setup managed JRE
-        run: karate setup jre --yes
+        run: karate setup jre
 
       - name: Verify installation (managed JRE)
         env:

@@ -129,7 +129,10 @@ fn build_report() -> Result<DoctorReport> {
             key: platform.manifest_key(),
         },
         karate_home: paths.home.to_string_lossy().to_string(),
-        local_override: paths.local.as_ref().map(|p| p.to_string_lossy().to_string()),
+        local_override: paths
+            .local
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string()),
         jre,
         system_jre,
         karate_jar,
@@ -239,7 +242,11 @@ fn print_report(report: &DoctorReport) {
         let path = report.system_jre.path.as_deref().unwrap_or("unknown");
 
         if report.system_jre.meets_minimum {
-            println!("  Status:  {} Java {} (meets minimum)", style("✓").green(), report.system_jre.major_version.unwrap_or(0));
+            println!(
+                "  Status:  {} Java {} (meets minimum)",
+                style("✓").green(),
+                report.system_jre.major_version.unwrap_or(0)
+            );
         } else {
             println!(
                 "  Status:  {} Java {} (requires {}+)",

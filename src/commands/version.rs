@@ -36,24 +36,25 @@ fn build_version_info() -> Result<VersionInfo> {
 
     // Get Karate JAR version from filename
     let karate_jar = if paths.dist.exists() {
-        std::fs::read_dir(&paths.dist)
-            .ok()
-            .and_then(|entries| {
-                entries
-                    .filter_map(|e| e.ok())
-                    .filter_map(|e| {
-                        let name = e.file_name().to_string_lossy().to_string();
-                        if name.starts_with("karate-") && name.ends_with(".jar") && !name.contains("robot") {
-                            // Extract version from karate-X.Y.Z.jar
-                            let without_prefix = name.strip_prefix("karate-")?;
-                            let without_suffix = without_prefix.strip_suffix(".jar")?;
-                            Some(without_suffix.to_string())
-                        } else {
-                            None
-                        }
-                    })
-                    .max()
-            })
+        std::fs::read_dir(&paths.dist).ok().and_then(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .filter_map(|e| {
+                    let name = e.file_name().to_string_lossy().to_string();
+                    if name.starts_with("karate-")
+                        && name.ends_with(".jar")
+                        && !name.contains("robot")
+                    {
+                        // Extract version from karate-X.Y.Z.jar
+                        let without_prefix = name.strip_prefix("karate-")?;
+                        let without_suffix = without_prefix.strip_suffix(".jar")?;
+                        Some(without_suffix.to_string())
+                    } else {
+                        None
+                    }
+                })
+                .max()
+        })
     } else {
         None
     };

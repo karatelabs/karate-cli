@@ -6,10 +6,7 @@ use anyhow::Result;
 use console::style;
 
 pub async fn run(args: UpgradeArgs) -> Result<ExitCode> {
-    println!(
-        "{} Checking for updates...",
-        style("▶").cyan().bold()
-    );
+    println!("{} Checking for updates...", style("▶").cyan().bold());
 
     if let Some(version) = &args.version {
         println!("  Target version: {}", style(version).green());
@@ -22,10 +19,7 @@ pub async fn run(args: UpgradeArgs) -> Result<ExitCode> {
     // TODO: Download new JRE if available
 
     println!();
-    println!(
-        "  {} Upgrade not yet implemented",
-        style("!").yellow()
-    );
+    println!("  {} Upgrade not yet implemented", style("!").yellow());
 
     Ok(ExitCode::Success)
 }

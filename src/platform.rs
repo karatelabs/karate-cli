@@ -11,6 +11,7 @@ pub struct Platform {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum Os {
     MacOS,
     Linux,
@@ -18,6 +19,7 @@ pub enum Os {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum Arch {
     X64,
     Aarch64,
@@ -78,6 +80,7 @@ impl Platform {
     }
 
     /// Get the JRE directory name for this platform.
+    #[allow(dead_code)]
     pub fn jre_dir_name(&self, version: &str) -> String {
         format!("{}-{}", version, self.manifest_key())
     }
@@ -85,6 +88,7 @@ impl Platform {
 
 impl Os {
     /// Get the path to the karate home directory (~/.karate).
+    #[allow(dead_code)]
     pub fn karate_home(&self) -> PathBuf {
         dirs::home_dir()
             .expect("Could not determine home directory")
@@ -182,9 +186,7 @@ impl KaratePaths {
 
     /// Check for local .karate directory in current working directory.
     fn resolve_local() -> Option<PathBuf> {
-        let local = std::env::current_dir()
-            .ok()?
-            .join(".karate");
+        let local = std::env::current_dir().ok()?.join(".karate");
 
         if local.exists() && local.is_dir() {
             Some(local)
@@ -195,7 +197,7 @@ impl KaratePaths {
 
     /// Resolve a path with local override fallback to global.
     /// If local/{subdir} exists, use it. Otherwise use global/{subdir}.
-    fn resolve_path(local: &Option<PathBuf>, global: &PathBuf, subdir: &str) -> PathBuf {
+    fn resolve_path(local: &Option<PathBuf>, global: &std::path::Path, subdir: &str) -> PathBuf {
         if let Some(local_dir) = local {
             let local_path = local_dir.join(subdir);
             if local_path.exists() {
@@ -223,6 +225,7 @@ impl KaratePaths {
     }
 
     /// Check if we're using any local overrides.
+    #[allow(dead_code)]
     pub fn has_local_overrides(&self) -> bool {
         self.local.is_some()
     }

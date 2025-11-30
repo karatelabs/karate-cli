@@ -60,9 +60,7 @@ async fn run_list() -> Result<ExitCode> {
     if !paths.ext.exists() {
         println!("  {}", style("No extensions installed").dim());
         println!();
-        println!(
-            "  Drop JAR files into the ext/ folder to add extensions."
-        );
+        println!("  Drop JAR files into the ext/ folder to add extensions.");
         return Ok(ExitCode::Success);
     }
 

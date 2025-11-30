@@ -2,7 +2,7 @@
 
 use crate::platform::{KaratePaths, Os, Platform};
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Minimum Java major version required for Karate 1.5.2+
@@ -61,7 +61,9 @@ impl InstalledJre {
 
     /// Check if this JRE meets minimum version requirements.
     pub fn meets_minimum_version(&self) -> bool {
-        self.major_version.map(|v| v >= MIN_JAVA_VERSION).unwrap_or(false)
+        self.major_version
+            .map(|v| v >= MIN_JAVA_VERSION)
+            .unwrap_or(false)
     }
 }
 
@@ -114,7 +116,7 @@ pub fn find_system_jre() -> Result<Option<InstalledJre>> {
 }
 
 /// Check if JAVA_HOME contains a valid Java installation.
-fn check_java_home(java_home: &PathBuf, platform: &Platform) -> Option<InstalledJre> {
+fn check_java_home(java_home: &Path, platform: &Platform) -> Option<InstalledJre> {
     let java_name = platform.os.java_executable();
     let java_executable = java_home.join("bin").join(java_name);
 
@@ -127,7 +129,7 @@ fn check_java_home(java_home: &PathBuf, platform: &Platform) -> Option<Installed
     Some(InstalledJre {
         version: version_string,
         platform: platform.manifest_key(),
-        path: java_home.clone(),
+        path: java_home.to_path_buf(),
         java_executable,
         source: JreSource::JavaHome,
         major_version: Some(major_version),
@@ -361,6 +363,7 @@ fn walkdir(dir: &PathBuf, target: &str) -> Result<Vec<PathBuf>> {
 }
 
 /// Get the JRE directory name for a version and platform.
+#[allow(dead_code)]
 pub fn jre_dir_name(version: &str, platform: &Platform) -> String {
     format!("{}-{}", version, platform.manifest_key())
 }

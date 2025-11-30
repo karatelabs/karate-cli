@@ -19,19 +19,13 @@ async fn run_list() -> Result<ExitCode> {
     let platform = Platform::detect()?;
     let jres = list_installed_jres()?;
 
-    println!(
-        "{} Installed JREs",
-        style("▶").cyan().bold()
-    );
+    println!("{} Installed JREs", style("▶").cyan().bold());
     println!();
 
     if jres.is_empty() {
         println!("  No JREs installed.");
         println!();
-        println!(
-            "  Run {} to install a JRE.",
-            style("karate setup").cyan()
-        );
+        println!("  Run {} to install a JRE.", style("karate setup").cyan());
         return Ok(ExitCode::Success);
     }
 
@@ -76,17 +70,11 @@ async fn run_list() -> Result<ExitCode> {
 
 /// Check JRE health.
 async fn run_doctor() -> Result<ExitCode> {
-    println!(
-        "{} JRE Health Check",
-        style("▶").cyan().bold()
-    );
+    println!("{} JRE Health Check", style("▶").cyan().bold());
     println!();
 
     let platform = Platform::detect()?;
-    println!(
-        "  Platform: {}",
-        style(platform.manifest_key()).green()
-    );
+    println!("  Platform: {}", style(platform.manifest_key()).green());
 
     match find_active_jre()? {
         Some(jre) => {
@@ -121,10 +109,7 @@ async fn run_doctor() -> Result<ExitCode> {
                 style("ERROR").red().bold()
             );
             println!();
-            println!(
-                "  Run {} to install a JRE.",
-                style("karate setup").cyan()
-            );
+            println!("  Run {} to install a JRE.", style("karate setup").cyan());
 
             Ok(ExitCode::JreError)
         }

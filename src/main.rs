@@ -8,7 +8,6 @@ mod jre;
 mod manifest;
 mod platform;
 
-use anyhow::Result;
 use clap::Parser;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 

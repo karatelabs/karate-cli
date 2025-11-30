@@ -27,7 +27,8 @@ impl From<ExitCode> for i32 {
 impl ExitCode {
     /// Create an exit code from a JVM process exit code.
     /// JVM exit codes are passed through as 100 + code.
-    pub fn from_jvm(code: i32) -> Self {
+    #[allow(dead_code)]
+    pub fn from_jvm(_code: i32) -> Self {
         // We represent JVM codes as GeneralError but the actual
         // process exit will use the raw code
         ExitCode::GeneralError
@@ -45,6 +46,7 @@ impl ExitCode {
 
 /// Karate CLI errors.
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum KarateError {
     #[error("Karate is not set up. Run 'karate setup' first.")]
     NotBootstrapped,
@@ -86,6 +88,7 @@ pub enum KarateError {
 
 impl KarateError {
     /// Get the appropriate exit code for this error.
+    #[allow(dead_code)]
     pub fn exit_code(&self) -> ExitCode {
         match self {
             KarateError::NotBootstrapped | KarateError::Config(_) => ExitCode::ConfigError,

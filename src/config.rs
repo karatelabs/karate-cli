@@ -76,6 +76,7 @@ impl Config {
     }
 
     /// Save config to a file.
+    #[allow(dead_code)]
     pub fn save_to_file(&self, path: &Path) -> Result<()> {
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {

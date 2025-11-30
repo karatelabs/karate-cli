@@ -21,7 +21,7 @@ pub async fn run(args: SetupArgs) -> Result<ExitCode> {
 }
 
 /// Full setup wizard.
-async fn run_setup_wizard(non_interactive: bool) -> Result<ExitCode> {
+async fn run_setup_wizard(_non_interactive: bool) -> Result<ExitCode> {
     let platform = Platform::detect()?;
     let paths = KaratePaths::new();
 
@@ -118,7 +118,11 @@ async fn download_jre(platform: &Platform, paths: &KaratePaths, java_version: u8
     // Clean up archive
     let _ = std::fs::remove_file(&archive_path);
 
-    println!("  {} JRE {} installed", style("✓").green(), jre_info.version_label);
+    println!(
+        "  {} JRE {} installed",
+        style("✓").green(),
+        jre_info.version_label
+    );
     Ok(())
 }
 

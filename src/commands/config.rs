@@ -24,10 +24,7 @@ pub async fn run(args: ConfigArgs) -> Result<ExitCode> {
         }
     };
 
-    println!(
-        "{} Configuration",
-        style("▶").cyan().bold()
-    );
+    println!("{} Configuration", style("▶").cyan().bold());
     println!();
     println!("  Config file: {}", style(config_path.display()).green());
 

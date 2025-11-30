@@ -6,14 +6,17 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Default manifest URL.
+#[allow(dead_code)]
 pub const MANIFEST_URL: &str =
     "https://github.com/karatelabs/karate-cli-manifest/releases/latest/download/manifest.json";
 
 /// Default Karate JAR URL template (used when manifest is unavailable).
+#[allow(dead_code)]
 pub const DEFAULT_JAR_URL_TEMPLATE: &str =
     "https://github.com/karatelabs/karate/releases/download/v{version}/karate-{version}-all.jar";
 
 /// Default JRE version.
+#[allow(dead_code)]
 pub const DEFAULT_JRE_VERSION: &str = "17.0.12";
 
 /// Artifact with URL and checksum.
@@ -73,6 +76,7 @@ fn default_schema_version() -> u32 {
     1
 }
 
+#[allow(dead_code)]
 impl Manifest {
     /// Get a channel by name.
     pub fn get_channel(&self, name: &str) -> Option<&Channel> {
@@ -92,11 +96,13 @@ impl Manifest {
 }
 
 /// Build a Karate JAR URL from template and version.
+#[allow(dead_code)]
 pub fn build_jar_url(template: &str, version: &str) -> String {
     template.replace("{version}", version)
 }
 
 /// Create a minimal default manifest for offline/first-run use.
+#[allow(dead_code)]
 pub fn create_default_manifest() -> Manifest {
     Manifest {
         schema_version: 1,
@@ -109,6 +115,7 @@ pub fn create_default_manifest() -> Manifest {
 }
 
 /// Fetch manifest from URL.
+#[allow(dead_code)]
 pub async fn fetch_manifest(url: &str) -> Result<Manifest> {
     let response = reqwest::get(url)
         .await
@@ -128,6 +135,7 @@ pub async fn fetch_manifest(url: &str) -> Result<Manifest> {
 }
 
 /// Load cached manifest from disk.
+#[allow(dead_code)]
 pub fn load_cached_manifest(cache_path: &std::path::Path) -> Result<Option<Manifest>> {
     if !cache_path.exists() {
         return Ok(None);
@@ -139,6 +147,7 @@ pub fn load_cached_manifest(cache_path: &std::path::Path) -> Result<Option<Manif
 }
 
 /// Save manifest to cache.
+#[allow(dead_code)]
 pub fn save_manifest_cache(manifest: &Manifest, cache_path: &std::path::Path) -> Result<()> {
     if let Some(parent) = cache_path.parent() {
         std::fs::create_dir_all(parent)?;

@@ -5,7 +5,7 @@ use crate::error::{ExitCode, KarateError};
 use crate::jre::find_active_jre;
 use crate::platform::KaratePaths;
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Run a delegated command through the JVM.
@@ -66,7 +66,7 @@ pub async fn run(args: Vec<String>) -> Result<ExitCode> {
 }
 
 /// Find java executable in a JRE directory
-fn find_java_in_dir(jre_dir: &PathBuf) -> Result<PathBuf> {
+fn find_java_in_dir(jre_dir: &Path) -> Result<PathBuf> {
     // Try common locations
     let candidates = [
         jre_dir.join("bin/java"),
@@ -84,7 +84,7 @@ fn find_java_in_dir(jre_dir: &PathBuf) -> Result<PathBuf> {
 }
 
 /// Find the Karate JAR to use.
-fn find_karate_jar(dist_dir: &PathBuf) -> Result<PathBuf> {
+fn find_karate_jar(dist_dir: &Path) -> Result<PathBuf> {
     if !dist_dir.exists() {
         return Err(KarateError::NotBootstrapped.into());
     }
@@ -112,7 +112,7 @@ fn find_karate_jar(dist_dir: &PathBuf) -> Result<PathBuf> {
 }
 
 /// Build the classpath string.
-fn build_classpath(paths: &KaratePaths, jar_path: &PathBuf) -> Result<String> {
+fn build_classpath(paths: &KaratePaths, jar_path: &Path) -> Result<String> {
     let mut classpath_parts = vec![jar_path.to_string_lossy().to_string()];
 
     // Add user extensions from ext/

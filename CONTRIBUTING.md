@@ -85,20 +85,17 @@ Each artifact includes a `.sha256` checksum file.
    git pull
    ```
 
-2. **Update version in Cargo.toml**
-   ```bash
-   # Edit Cargo.toml: version = "0.2.0"
-   git add Cargo.toml
-   git commit -m "Bump version to 0.2.0"
-   git push
-   ```
-
-3. **Trigger release via GitHub UI**
+2. **Trigger release via GitHub UI**
    - Go to Actions → Release → Run workflow
    - Enter tag name: `v0.2.0`
    - Click "Run workflow"
 
-   The workflow will create the tag AND the release with all binaries.
+   The workflow will:
+   - Inject the version from the tag into `Cargo.toml` at build time
+   - Build binaries for all platforms
+   - Create the git tag AND the GitHub Release
+
+   Note: `Cargo.toml` stays at `version = "0.1.0"` in git - the version is injected during the release build only.
 
 ### Option B: Tag-Based Release
 

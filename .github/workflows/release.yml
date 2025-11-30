@@ -56,6 +56,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Determine version from tag
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          # Strip 'v' prefix: v0.2.0 -> 0.2.0
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Set version in Cargo.toml
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            sed -i '' 's/^version = .*/version = "${{ steps.version.outputs.version }}"/' Cargo.toml
+          else
+            sed -i 's/^version = .*/version = "${{ steps.version.outputs.version }}"/' Cargo.toml
+          fi
+          grep '^version' Cargo.toml
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:

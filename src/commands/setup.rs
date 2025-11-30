@@ -32,10 +32,7 @@ pub async fn run(args: SetupArgs) -> Result<ExitCode> {
                     style("error:").red().bold(),
                     comp
                 );
-                eprintln!(
-                    "  Valid components: {}",
-                    VALID_COMPONENTS.join(", ")
-                );
+                eprintln!("  Valid components: {}", VALID_COMPONENTS.join(", "));
                 return Ok(ExitCode::ConfigError);
             }
             set.insert(comp_lower);

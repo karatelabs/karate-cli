@@ -96,6 +96,7 @@ impl Os {
     }
 
     /// Get the default bin directory for CLI installation.
+    #[allow(dead_code)]
     pub fn default_bin_dir(&self) -> PathBuf {
         match self {
             Os::MacOS | Os::Linux => dirs::home_dir()

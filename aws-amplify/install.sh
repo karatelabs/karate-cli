@@ -1,7 +1,7 @@
 #!/bin/sh
 # Karate CLI Installer for Unix/macOS
-# Usage: curl -fsSL https://karate.sh | sh
-#        curl -fsSL https://karate.sh | sh -s -- --yes
+# Usage: curl -fsSL https://karate.sh/install.sh | sh
+#        curl -fsSL https://karate.sh/install.sh | sh -s -- --yes
 #
 # Options:
 #   --yes           Non-interactive, accept defaults
@@ -68,7 +68,7 @@ while [ $# -gt 0 ]; do
         --help|-h)
             echo "Karate CLI Installer"
             echo ""
-            echo "Usage: curl -fsSL https://karate.sh | sh -s -- [OPTIONS]"
+            echo "Usage: curl -fsSL https://karate.sh/install.sh | sh -s -- [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --yes, -y        Non-interactive, accept defaults"

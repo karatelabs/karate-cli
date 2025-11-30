@@ -621,7 +621,7 @@ Own the install experience with `karate.sh`:
 
 **Unix/macOS:**
 ```bash
-curl -fsSL https://karate.sh | sh
+curl -fsSL https://karate.sh/install.sh | sh
 ```
 
 **Windows (PowerShell):**

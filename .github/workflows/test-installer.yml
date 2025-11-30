@@ -1,0 +1,62 @@
+name: Test Installer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-unix:
+    name: Test Installer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-13]
+    steps:
+      - name: Install Karate CLI
+        run: |
+          curl -fsSL https://karate.sh/install.sh | sh -s -- --bin-dir $HOME/.local/bin
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Setup Karate (JRE + JAR)
+        run: karate setup --yes
+
+      - name: Verify installation
+        run: |
+          karate version
+          karate doctor
+
+      - name: Fetch smoke test
+        run: curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/test/smoke.feature -o smoke.feature
+
+      - name: Run Karate smoke test
+        run: |
+          karate smoke.feature
+          echo "Exit code: $?"
+
+  test-windows:
+    name: Test Installer (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - name: Install Karate CLI
+        shell: pwsh
+        run: |
+          $InstallDir = "$env:LOCALAPPDATA\Programs\Karate"
+          Invoke-RestMethod -Uri "https://karate.sh/install.ps1" -OutFile install.ps1
+          .\install.ps1 -InstallDir $InstallDir
+          echo "$InstallDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Setup Karate (JRE + JAR)
+        run: karate setup --yes
+
+      - name: Verify installation
+        run: |
+          karate version
+          karate doctor
+
+      - name: Fetch smoke test
+        run: Invoke-WebRequest -Uri "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/test/smoke.feature" -OutFile smoke.feature
+
+      - name: Run Karate smoke test
+        run: |
+          karate smoke.feature
+          echo "Exit code: $LASTEXITCODE"

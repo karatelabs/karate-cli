@@ -1,13 +1,23 @@
 customHeaders:
-  - pattern: '/install.sh'
+  # Install scripts - no caching to always get latest
+  - pattern: 'install.sh'
     headers:
-      - key: Content-Type
-        value: text/plain; charset=utf-8
-      - key: Cache-Control
-        value: no-cache, no-store, must-revalidate
-  - pattern: '/install.ps1'
+      - key: 'Cache-Control'
+        value: 'no-cache, no-store, must-revalidate'
+      - key: 'Content-Type'
+        value: 'text/plain; charset=utf-8'
+  - pattern: 'install.ps1'
     headers:
-      - key: Content-Type
-        value: text/plain; charset=utf-8
-      - key: Cache-Control
-        value: no-cache, no-store, must-revalidate
+      - key: 'Cache-Control'
+        value: 'no-cache, no-store, must-revalidate'
+      - key: 'Content-Type'
+        value: 'text/plain; charset=utf-8'
+  # HTML page - short cache, revalidate
+  - pattern: 'index.html'
+    headers:
+      - key: 'Cache-Control'
+        value: 'no-cache'
+  - pattern: '/'
+    headers:
+      - key: 'Cache-Control'
+        value: 'no-cache'

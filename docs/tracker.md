@@ -1,6 +1,6 @@
 # Karate CLI Development Tracker
 
-> Last updated: 2025-11-28
+> Last updated: 2025-11-30
 
 ## Progress Overview
 
@@ -11,7 +11,9 @@
 | Setup Wizard | ✅ Complete | Downloads JRE + JAR automatically |
 | JAR Delegation | ✅ Complete | Pass-through to Karate JAR works |
 | Doctor Command | ✅ Complete | Full diagnostics with JSON output |
-| Distribution | 🔲 Not Started | karate.sh, npm, Homebrew, etc. |
+| GitHub Releases | ✅ Complete | v0.1.0 with all platform binaries + checksums |
+| karate.sh Site | ✅ Complete | AWS Amplify hosting, install scripts |
+| Distribution | 🔄 In Progress | npm, Homebrew, Chocolatey pending |
 
 ---
 
@@ -107,15 +109,23 @@
 
 ### Phase 2: Distribution
 
-#### karate.sh Universal Installer
-- [ ] Shell script for Unix/macOS
-  - [ ] OS/arch detection
-  - [ ] Binary download from GitHub releases
-  - [ ] SHA256 verification
-  - [ ] PATH setup instructions
-- [ ] PowerShell script for Windows
-  - [ ] Same functionality
-  - [ ] Handles execution policies gracefully
+#### karate.sh Universal Installer ✅
+- [x] Shell script for Unix/macOS (install.sh)
+  - [x] OS/arch detection (darwin/linux, x64/arm64)
+  - [x] Binary download from GitHub releases
+  - [x] SHA256 verification
+  - [x] PATH setup instructions
+  - [x] --yes flag for auto-setup after install
+- [x] PowerShell script for Windows (install.ps1)
+  - [x] Same functionality
+  - [x] Auto-adds to user PATH
+- [x] AWS Amplify hosting at karate.sh
+  - [x] Landing page with install instructions
+  - [x] install.sh and install.ps1 served
+
+**Install URLs:**
+- Unix/macOS: `curl -fsSL https://karate.sh/install.sh | sh`
+- Windows: `irm https://karate.sh/install.ps1 | iex`
 
 #### npm Package (replace karate-npm)
 - [ ] New package structure
@@ -140,17 +150,17 @@
 
 ### Phase 3: CI/CD & Polish
 
-#### GitHub Actions
-- [ ] Build workflow for all platforms
-  - [ ] macOS arm64
-  - [ ] macOS x64
-  - [ ] Linux x64
-  - [ ] Linux arm64
-  - [ ] Windows x64
-- [ ] Release workflow
-  - [ ] Create GitHub release
-  - [ ] Upload binaries
-  - [ ] Generate checksums
+#### GitHub Actions ✅
+- [x] Build workflow for all platforms
+  - [x] macOS arm64
+  - [x] macOS x64
+  - [x] Linux x64
+  - [x] Linux arm64
+  - [x] Windows x64
+- [x] Release workflow
+  - [x] Create GitHub release
+  - [x] Upload binaries (tar.gz for Unix, zip for Windows)
+  - [x] Generate SHA256 checksums
 - [ ] Test workflow
   - [ ] Unit tests
   - [ ] Integration tests
@@ -187,6 +197,8 @@
 
 ## Testing Notes
 
+### Development Testing
+
 ```bash
 # Development testing (uses ./home/.karate instead of ~/.karate)
 KARATE_HOME=./home/.karate cargo run -- setup
@@ -196,6 +208,30 @@ KARATE_HOME=./home/.karate cargo run -- run --help
 # Test with local .karate override
 mkdir -p .karate/ext
 cargo run -- doctor  # Shows local override active
+```
+
+### Universal Installer Testing (2025-11-30)
+
+Tested platforms via Docker and native:
+
+| Platform | Method | Result |
+|----------|--------|--------|
+| macOS arm64 | Native | ✅ Full install + setup works |
+| Linux arm64 | Docker (Ubuntu) | ✅ Full install + setup works |
+| Linux x64 | Docker (Ubuntu) | Expected to work (same code path) |
+| Windows x64 | Manual | Needs testing |
+
+```bash
+# Test macOS installation
+curl -fsSL https://karate.sh/install.sh | sh -s -- --bin-dir /tmp/karate-test
+/tmp/karate-test/karate version
+
+# Test Linux installation in Docker
+docker run --rm ubuntu:latest bash -c '
+  apt-get update && apt-get install -y curl
+  curl -fsSL https://karate.sh/install.sh | sh -s -- --bin-dir /tmp/bin --yes
+  /tmp/bin/karate doctor --json
+'
 ```
 
 ---

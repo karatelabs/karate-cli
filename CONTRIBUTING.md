@@ -77,6 +77,8 @@ Each artifact includes a `.sha256` checksum file.
 
 ## Making a Release
 
+### Option A: Manual Trigger (Recommended)
+
 1. **Ensure CI passes on main**
    ```bash
    git checkout main
@@ -91,20 +93,42 @@ Each artifact includes a `.sha256` checksum file.
    git push
    ```
 
-3. **Create and push a tag**
-   ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
+3. **Trigger release via GitHub UI**
+   - Go to Actions → Release → Run workflow
+   - Enter tag name: `v0.2.0`
+   - Click "Run workflow"
 
-4. **Monitor the release workflow**
-   - Go to Actions → Release workflow
-   - Once complete, binaries appear at:
-     `https://github.com/karatelabs/karate-cli/releases/tag/v0.2.0`
+   The workflow will create the tag AND the release with all binaries.
 
-5. **Edit release notes** (optional)
-   - GitHub auto-generates notes from commits
-   - Add highlights or breaking changes manually if needed
+### Option B: Tag-Based Release
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The release workflow triggers automatically on tag push.
+
+### After Release
+
+- Binaries appear at: `https://github.com/karatelabs/karate-cli/releases/tag/v0.2.0`
+- GitHub auto-generates release notes from commits
+- Edit release notes manually if needed
+
+### Deleting a Tag (if needed)
+
+```bash
+# Delete local tag
+git tag -d v0.2.0
+
+# Delete remote tag
+git push origin --delete v0.2.0
+
+# Or delete both in one line
+git tag -d v0.2.0 && git push origin --delete v0.2.0
+```
+
+Note: Deleting a tag does NOT delete the GitHub Release. Delete the release manually from the GitHub UI if needed.
 
 ## Testing the Install Scripts
 

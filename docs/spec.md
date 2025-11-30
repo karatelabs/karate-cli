@@ -83,7 +83,7 @@ JavaFX notarized desktop application can:
 3. **Simple extension model** — `~/.karate/ext/*.jar` added to classpath
 4. **Defaults that just work** — minimal config needed for basic usage
 5. **Progressive customization** — power users can override defaults later
-6. **Explicit bootstrap** — users must run `karate setup` or `karate upgrade` before first use
+6. **Explicit bootstrap** — users must run `karate setup` before first use
 
 ## **3.2 Command Responsibility Model**
 
@@ -97,9 +97,9 @@ Commands fully implemented in Rust:
 |---------|-------------|
 | `karate setup` | Interactive first-run wizard |
 | `karate setup --all` | Install JAR + JRE non-interactively |
-| `karate setup --components jar` | Install JAR only (use system JRE) |
-| `karate setup --components jre` | Install/update JRE only |
-| `karate upgrade [--version <ver>]` | Update to latest/specific version |
+| `karate setup --item jar` | Install JAR only (use system JRE) |
+| `karate setup --item jre` | Install/update JRE only |
+| `karate update [--all] [--item <name>]` | Check for and install updates |
 | `karate config [--global\|--local\|--show]` | Edit or view configuration |
 | `karate jre list` | List installed JREs |
 | `karate jre doctor` | Check JRE health |
@@ -133,15 +133,17 @@ Everything else passes through to the JVM:
   * Download matching JustJ JRE
   * Store in `~/.karate/`
   * Offer to add to PATH
-* Support automated/non-interactive mode (`--all` or `--components`).
+* Support automated/non-interactive mode (`--all` or `--item`).
 * **Explicit bootstrap required** — running `karate run` without setup shows helpful error.
 
 ### **B. Self-Management**
 
-* `karate upgrade`:
-  * Check manifest for updates
-  * Download new version(s)
-  * Support `--version <ver>` for specific version
+* `karate update`:
+  * Check for newer versions of installed components
+  * Display current vs latest versions
+  * Interactive confirmation before downloading
+  * Support `--all` for non-interactive updates
+  * Support `--item` for targeted updates
   * Clean unused versions optionally
 
 * `karate doctor`:
@@ -189,7 +191,7 @@ Everything else passes through to the JVM:
 ### **G. Update Notifications**
 
 * On every delegated command, non-blocking background check for updates
-* Shows banner if update available: `Update available: 2.1.0 → run 'karate upgrade'`
+* Shows banner if update available: `Update available: 2.1.0 → run 'karate update'`
 * Configurable: `"check_updates": false` in config to disable
 
 ### **H. Proxy Support**
@@ -242,7 +244,7 @@ karate <command> [options]
 
 Management Commands (Rust-native):
   setup [subcommand]     First-run wizard or targeted setup
-  upgrade                Update Karate JAR and JRE
+  update                 Check for and install updates
   config                 View or edit configuration
   jre <subcommand>       JRE management
   plugin <subcommand>    Plugin management
@@ -264,14 +266,14 @@ Runtime Commands (JAR-delegated):
 ### **setup**
 
 ```
-karate setup [--all] [--components <list>] [--force] [--java-version <ver>]
+karate setup [--all] [--item <name>] [--force] [--java-version <ver>]
 ```
 
 Interactive first-run wizard. Downloads JRE and Karate JAR, offers PATH setup.
 
 **Flags:**
 * `--all` — Install all components (JAR + JRE) non-interactively
-* `--components <list>` — Install specific components (comma-separated: jar, jre)
+* `--item <name>` — Install specific item: jar, jre
 * `--force` — Force download even if components already installed
 * `--java-version <ver>` — Specific Java major version (default: 21)
 
@@ -279,24 +281,24 @@ Interactive first-run wizard. Downloads JRE and Karate JAR, offers PATH setup.
 ```
 karate setup                    # Interactive wizard
 karate setup --all              # Install everything non-interactively
-karate setup --components jar   # JAR only (use system JRE)
-karate setup --components jre   # JRE only
-karate setup --components jar,jre --force  # Force re-download both
+karate setup --item jar         # JAR only (use system JRE)
+karate setup --item jre         # JRE only
+karate setup --item jar --force # Force re-download JAR
 ```
 
 ---
 
-### **upgrade**
+### **update**
 
 ```
-karate upgrade [--all] [--version <ver>]
+karate update [--all] [--item <name>]
 ```
 
-Check for updates and download new versions.
+Check for updates and download new versions. Interactive by default.
 
 **Flags:**
-* `--all` — Non-interactive (upgrade all components)
-* `--version <ver>` — Install specific version instead of latest
+* `--all` — Update all components non-interactively
+* `--item <name>` — Update specific item: jar, jre
 
 ---
 

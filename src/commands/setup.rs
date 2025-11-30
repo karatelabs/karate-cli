@@ -13,43 +13,37 @@ use std::path::PathBuf;
 /// Default Java version for Karate (21 required for Karate 1.5.2+)
 const DEFAULT_JAVA_VERSION: u8 = MIN_JAVA_VERSION;
 
-/// Available setup components
-const VALID_COMPONENTS: &[&str] = &["jar", "jre"];
+/// Valid items for setup
+const VALID_ITEMS: &[&str] = &["jar", "jre"];
 
 pub async fn run(args: SetupArgs) -> Result<ExitCode> {
-    // Determine which components to install
-    let components: HashSet<String> = if args.all {
+    // Determine which items to install
+    let items: HashSet<String> = if args.all {
         // --all installs everything
-        VALID_COMPONENTS.iter().map(|s| s.to_string()).collect()
-    } else if let Some(ref comps) = args.components {
-        // Validate component names
-        let mut set = HashSet::new();
-        for comp in comps {
-            let comp_lower = comp.to_lowercase();
-            if !VALID_COMPONENTS.contains(&comp_lower.as_str()) {
-                eprintln!(
-                    "{} Unknown component: {}",
-                    style("error:").red().bold(),
-                    comp
-                );
-                eprintln!("  Valid components: {}", VALID_COMPONENTS.join(", "));
-                return Ok(ExitCode::ConfigError);
-            }
-            set.insert(comp_lower);
+        VALID_ITEMS.iter().map(|s| s.to_string()).collect()
+    } else if let Some(ref item) = args.item {
+        // Validate item name
+        let item_lower = item.to_lowercase();
+        if !VALID_ITEMS.contains(&item_lower.as_str()) {
+            eprintln!("{} Unknown item: {}", style("error:").red().bold(), item);
+            eprintln!("  Valid items: {}", VALID_ITEMS.join(", "));
+            return Ok(ExitCode::ConfigError);
         }
+        let mut set = HashSet::new();
+        set.insert(item_lower);
         set
     } else {
         // No flags = interactive wizard
         return run_setup_wizard().await;
     };
 
-    // Non-interactive install of specified components
-    run_setup_components(&components, args.force, args.java_version).await
+    // Non-interactive install of specified items
+    run_setup_items(&items, args.force, args.java_version).await
 }
 
-/// Non-interactive setup of specified components.
-async fn run_setup_components(
-    components: &HashSet<String>,
+/// Non-interactive setup of specified items.
+async fn run_setup_items(
+    items: &HashSet<String>,
     force: bool,
     java_version: Option<String>,
 ) -> Result<ExitCode> {
@@ -65,15 +59,15 @@ async fn run_setup_components(
     );
     println!("  Home: {}", style(paths.home.display()).dim());
     println!(
-        "  Components: {}",
-        style(components.iter().cloned().collect::<Vec<_>>().join(", ")).cyan()
+        "  Items: {}",
+        style(items.iter().cloned().collect::<Vec<_>>().join(", ")).cyan()
     );
     println!();
 
     paths.ensure_dirs()?;
 
-    let install_jre = components.contains("jre");
-    let install_jar = components.contains("jar");
+    let install_jre = items.contains("jre");
+    let install_jar = items.contains("jar");
     let total_steps = (install_jre as u8) + (install_jar as u8);
     let mut step = 0;
 

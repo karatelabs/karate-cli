@@ -21,8 +21,8 @@ pub enum Command {
     /// First-run setup wizard
     Setup(SetupArgs),
 
-    /// Update Karate JAR and JRE to latest version
-    Upgrade(UpgradeArgs),
+    /// Update Karate JAR and JRE to latest versions
+    Update(UpdateArgs),
 
     /// View or edit configuration
     Config(ConfigArgs),
@@ -51,12 +51,12 @@ pub enum Command {
 #[derive(Args, Debug)]
 pub struct SetupArgs {
     /// Install all components (JAR + JRE) non-interactively
-    #[arg(long, conflicts_with = "components")]
+    #[arg(long, conflicts_with = "item")]
     pub all: bool,
 
-    /// Install specific components: jar, jre (comma-separated)
-    #[arg(long, value_delimiter = ',')]
-    pub components: Option<Vec<String>>,
+    /// Install specific item: jar, jre
+    #[arg(long)]
+    pub item: Option<String>,
 
     /// Force download even if components are already installed
     #[arg(long, short)]
@@ -68,18 +68,18 @@ pub struct SetupArgs {
 }
 
 // ============================================================================
-// Upgrade command
+// Update command
 // ============================================================================
 
 #[derive(Args, Debug)]
-pub struct UpgradeArgs {
-    /// Non-interactive mode (upgrade all components)
-    #[arg(long)]
+pub struct UpdateArgs {
+    /// Update all components non-interactively
+    #[arg(long, conflicts_with = "item")]
     pub all: bool,
 
-    /// Install specific version instead of latest
+    /// Update specific item: jar, jre
     #[arg(long)]
-    pub version: Option<String>,
+    pub item: Option<String>,
 }
 
 // ============================================================================

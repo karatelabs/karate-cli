@@ -37,7 +37,7 @@ async fn run() -> ExitCode {
     let result = match cli.command {
         // Rust-native commands
         Command::Setup(args) => commands::setup::run(args).await,
-        Command::Upgrade(args) => commands::upgrade::run(args).await,
+        Command::Update(args) => commands::update::run(args).await,
         Command::Config(args) => commands::config::run(args).await,
         Command::Jre(args) => commands::jre::run(args).await,
         Command::Ext(args) => commands::plugin::run(args).await,

@@ -5,5 +5,5 @@ pub mod doctor;
 pub mod jre;
 pub mod plugin;
 pub mod setup;
-pub mod upgrade;
+pub mod update;
 pub mod version;

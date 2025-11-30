@@ -34,13 +34,13 @@
 - [x] JRE download and extraction (tar.gz)
 - [x] System JRE detection (JAVA_HOME, PATH)
 - [x] Minimum version enforcement (Java 21+)
-- [x] `karate setup jre` with --force option
+- [x] `karate setup --item jre` with --force option
 
 ### Setup & Bootstrap
 - [x] `karate setup` - Interactive wizard
 - [x] `karate setup --all` - Install JAR + JRE non-interactively
-- [x] `karate setup --components jar` - JAR only (use system JRE)
-- [x] `karate setup --components jre` - JRE only
+- [x] `karate setup --item jar` - JAR only (use system JRE)
+- [x] `karate setup --item jre` - JRE only
 - [x] Downloads latest Karate JAR from GitHub releases
 - [x] SHA256 checksum support infrastructure (not yet enforced)
 
@@ -90,13 +90,13 @@
   - [ ] --modify-shell-profile (Unix)
   - [ ] --add-to-path (Windows registry)
 
-#### Upgrade Command
-- [ ] `karate upgrade` - Check and download updates
-  - [ ] Fetch manifest for latest version
-  - [ ] Download new JAR if available
-  - [ ] Download new JRE if available
-  - [ ] --version flag for specific version
-  - [ ] --all flag for non-interactive
+#### Update Command ✅
+- [x] `karate update` - Check and download updates
+  - [x] Detect installed JAR/JRE versions from filenames
+  - [x] Compare with latest from GitHub/JustJ
+  - [x] Interactive confirmation before downloading
+  - [x] --all flag for non-interactive
+  - [x] --item flag for targeted updates
 
 #### Config Editing
 - [ ] `karate config` - Interactive editing
@@ -107,6 +107,10 @@
 - [ ] Background update check on delegated commands
 - [ ] "Update available" banner
 - [ ] Configurable via check_updates setting
+- [ ] **Caching**: Store last check timestamp in `~/.karate/cache/update-check.json`
+  - [ ] Only ping once per day (24h TTL)
+  - [ ] Cache latest version info to avoid repeated API calls
+  - [ ] Respect offline mode / network errors gracefully
 
 ### Phase 2: Distribution
 
@@ -184,6 +188,12 @@
 - [ ] `karate init` templates
 - [ ] Telemetry (opt-in)
 - [ ] Local manifest override for air-gapped networks
+- [ ] **Item version pinning**: `--item jar=1.5.2` or `--item jre=25`
+  - [ ] Parse `item=version` syntax in --item flag
+  - [ ] JAR version = full semver (e.g., 1.5.2)
+  - [ ] JRE version = Java major version (e.g., 21, 25)
+  - [ ] Bare item name means "latest" (backwards compatible)
+  - [ ] Works for both `setup` and `update` commands
 
 ---
 
@@ -242,8 +252,8 @@ docker run --rm ubuntu:latest bash -c '
 ```
 karate (Rust binary)
 ├── Rust-native commands
-│   ├── setup [path|jre]
-│   ├── upgrade
+│   ├── setup [--all|--item]
+│   ├── update [--all|--item]
 │   ├── config
 │   ├── jre [list|doctor]
 │   ├── ext [install|remove|list]

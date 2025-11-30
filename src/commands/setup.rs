@@ -1,27 +1,163 @@
 //! Setup command - first-run wizard and targeted setup.
 
-use crate::cli::{SetupArgs, SetupSubcommand};
+use crate::cli::SetupArgs;
 use crate::download::{download_file, extract_tar_gz, fetch_latest_release, resolve_justj_jre};
 use crate::error::ExitCode;
 use crate::jre::{find_active_jre, find_system_jre, JreSource, MIN_JAVA_VERSION};
 use crate::platform::{KaratePaths, Platform};
 use anyhow::Result;
 use console::style;
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 /// Default Java version for Karate (21 required for Karate 1.5.2+)
 const DEFAULT_JAVA_VERSION: u8 = MIN_JAVA_VERSION;
 
+/// Available setup components
+const VALID_COMPONENTS: &[&str] = &["jar", "jre"];
+
 pub async fn run(args: SetupArgs) -> Result<ExitCode> {
-    match args.subcommand {
-        Some(SetupSubcommand::Path(path_args)) => run_setup_path(path_args).await,
-        Some(SetupSubcommand::Jre(jre_args)) => run_setup_jre(jre_args).await,
-        None => run_setup_wizard(args.yes).await,
-    }
+    // Determine which components to install
+    let components: HashSet<String> = if args.all {
+        // --all installs everything
+        VALID_COMPONENTS.iter().map(|s| s.to_string()).collect()
+    } else if let Some(ref comps) = args.components {
+        // Validate component names
+        let mut set = HashSet::new();
+        for comp in comps {
+            let comp_lower = comp.to_lowercase();
+            if !VALID_COMPONENTS.contains(&comp_lower.as_str()) {
+                eprintln!(
+                    "{} Unknown component: {}",
+                    style("error:").red().bold(),
+                    comp
+                );
+                eprintln!(
+                    "  Valid components: {}",
+                    VALID_COMPONENTS.join(", ")
+                );
+                return Ok(ExitCode::ConfigError);
+            }
+            set.insert(comp_lower);
+        }
+        set
+    } else {
+        // No flags = interactive wizard
+        return run_setup_wizard().await;
+    };
+
+    // Non-interactive install of specified components
+    run_setup_components(&components, args.force, args.java_version).await
 }
 
-/// Full setup wizard.
-async fn run_setup_wizard(_non_interactive: bool) -> Result<ExitCode> {
+/// Non-interactive setup of specified components.
+async fn run_setup_components(
+    components: &HashSet<String>,
+    force: bool,
+    java_version: Option<String>,
+) -> Result<ExitCode> {
+    let platform = Platform::detect()?;
+    let paths = KaratePaths::new();
+
+    println!("{} Karate CLI Setup", style("▶").cyan().bold());
+    println!();
+    println!(
+        "  Platform: {} {}",
+        style(format!("{:?}", platform.os)).green(),
+        style(format!("{:?}", platform.arch)).green()
+    );
+    println!("  Home: {}", style(paths.home.display()).dim());
+    println!(
+        "  Components: {}",
+        style(components.iter().cloned().collect::<Vec<_>>().join(", ")).cyan()
+    );
+    println!();
+
+    paths.ensure_dirs()?;
+
+    let install_jre = components.contains("jre");
+    let install_jar = components.contains("jar");
+    let total_steps = (install_jre as u8) + (install_jar as u8);
+    let mut step = 0;
+
+    // Install JRE if requested
+    if install_jre {
+        step += 1;
+        println!(
+            "{} Setting up JRE...",
+            style(format!("[{}/{}]", step, total_steps)).bold().dim()
+        );
+
+        let java_ver = java_version
+            .as_ref()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(DEFAULT_JAVA_VERSION);
+
+        if !force {
+            if let Some(jre) = find_active_jre()? {
+                let source_info = match jre.source {
+                    JreSource::Managed => "managed".to_string(),
+                    JreSource::JavaHome => "from JAVA_HOME".to_string(),
+                    JreSource::Path => "from PATH".to_string(),
+                };
+                println!(
+                    "  {} JRE already available ({}, Java {})",
+                    style("✓").green(),
+                    source_info,
+                    jre.major_version.unwrap_or(0)
+                );
+            } else {
+                // Check if system JRE exists but doesn't meet requirements
+                if let Ok(Some(sys_jre)) = find_system_jre() {
+                    if !sys_jre.meets_minimum_version() {
+                        println!(
+                            "  {} System Java {} found but requires {}+",
+                            style("!").yellow(),
+                            sys_jre.major_version.unwrap_or(0),
+                            MIN_JAVA_VERSION
+                        );
+                    }
+                }
+                download_jre(&platform, &paths, java_ver).await?;
+            }
+        } else {
+            println!("  {} Force mode: downloading JRE", style("!").yellow());
+            download_jre(&platform, &paths, java_ver).await?;
+        }
+        println!();
+    }
+
+    // Install JAR if requested
+    if install_jar {
+        step += 1;
+        println!(
+            "{} Setting up Karate JAR...",
+            style(format!("[{}/{}]", step, total_steps)).bold().dim()
+        );
+
+        let existing_jar = find_karate_jar(&paths.dist);
+        if existing_jar.is_some() && !force {
+            println!("  {} Karate JAR already installed", style("✓").green());
+        } else {
+            if force && existing_jar.is_some() {
+                println!("  {} Force mode: re-downloading JAR", style("!").yellow());
+            }
+            download_karate_jar(&paths).await?;
+        }
+        println!();
+    }
+
+    println!(
+        "{} Setup complete! Run {} to verify.",
+        style("✓").green().bold(),
+        style("karate doctor").cyan()
+    );
+
+    Ok(ExitCode::Success)
+}
+
+/// Full setup wizard (interactive).
+async fn run_setup_wizard() -> Result<ExitCode> {
     let platform = Platform::detect()?;
     let paths = KaratePaths::new();
 
@@ -170,80 +306,4 @@ fn find_karate_jar(dist_dir: &PathBuf) -> Option<PathBuf> {
                     .map(|n| n.starts_with("karate-") && !n.contains("robot"))
                     .unwrap_or(false)
         })
-}
-
-/// Setup PATH only.
-async fn run_setup_path(args: crate::cli::SetupPathArgs) -> Result<ExitCode> {
-    let platform = Platform::detect()?;
-
-    println!("{} Setting up PATH...", style("▶").cyan().bold());
-
-    let bin_dir = args
-        .bin_dir
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| platform.os.default_bin_dir());
-
-    println!("  Target: {}", style(bin_dir.display()).green());
-
-    // TODO: Implement symlink creation
-    println!("  {} PATH setup not yet implemented", style("!").yellow());
-
-    Ok(ExitCode::Success)
-}
-
-/// Setup JRE only.
-async fn run_setup_jre(args: crate::cli::SetupJreArgs) -> Result<ExitCode> {
-    let platform = Platform::detect()?;
-    let paths = KaratePaths::new();
-
-    println!("{} Setting up JRE...", style("▶").cyan().bold());
-
-    paths.ensure_dirs()?;
-
-    let java_version = args
-        .version
-        .as_ref()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(DEFAULT_JAVA_VERSION);
-
-    // Check if we already have a suitable JRE (unless --force is used)
-    if !args.force {
-        if let Some(jre) = find_active_jre()? {
-            let source_info = match jre.source {
-                JreSource::Managed => "managed".to_string(),
-                JreSource::JavaHome => "from JAVA_HOME".to_string(),
-                JreSource::Path => "from PATH".to_string(),
-            };
-            println!(
-                "  {} JRE already available ({}, Java {})",
-                style("✓").green(),
-                source_info,
-                jre.major_version.unwrap_or(0)
-            );
-            println!();
-            println!(
-                "  Use {} to force download anyway.",
-                style("karate setup jre --force").cyan()
-            );
-            return Ok(ExitCode::Success);
-        }
-
-        // Check if system JRE exists but doesn't meet requirements
-        if let Some(sys_jre) = find_system_jre()? {
-            if !sys_jre.meets_minimum_version() {
-                println!(
-                    "  {} System Java {} found but requires {}+",
-                    style("!").yellow(),
-                    sys_jre.major_version.unwrap_or(0),
-                    MIN_JAVA_VERSION
-                );
-            }
-        }
-    } else {
-        println!("  {} Force mode: downloading JRE", style("!").yellow());
-    }
-
-    download_jre(&platform, &paths, java_version).await?;
-
-    Ok(ExitCode::Success)
 }

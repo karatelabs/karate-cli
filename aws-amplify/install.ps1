@@ -1,14 +1,14 @@
 # Karate CLI Installer for Windows
 # Usage: irm https://karate.sh/install.ps1 | iex
-#        irm https://karate.sh/install.ps1 | iex -Args '--yes'
+#        iex "& { $(irm https://karate.sh/install.ps1) } -All"
 #
 # Options:
-#   -Yes              Non-interactive, accept defaults
+#   -All              Download JRE + JAR immediately after install
 #   -InstallDir DIR   Install to custom directory (default: %LOCALAPPDATA%\Programs\Karate)
 #   -Version VER      Install specific version (default: latest)
 
 param(
-    [switch]$Yes,
+    [switch]$All,
     [string]$InstallDir = "$env:LOCALAPPDATA\Programs\Karate",
     [string]$Version = "latest",
     [switch]$Help
@@ -93,7 +93,7 @@ function Show-Help {
     Write-Host "       .\install.ps1 [OPTIONS]"
     Write-Host ""
     Write-Host "Options:"
-    Write-Host "  -Yes              Non-interactive, accept defaults"
+    Write-Host "  -All              Download JRE + JAR immediately after install"
     Write-Host "  -InstallDir DIR   Install to custom directory"
     Write-Host "                    (default: %LOCALAPPDATA%\Programs\Karate)"
     Write-Host "  -Version VER      Install specific version (default: latest)"
@@ -186,9 +186,9 @@ function Main {
         }
 
         # Run setup if requested
-        if ($Yes) {
+        if ($All) {
             Write-Info "Running karate setup..."
-            & $binaryPath setup --yes
+            & $binaryPath setup --all
         } else {
             Write-Host "Next steps:"
             Write-Host ""

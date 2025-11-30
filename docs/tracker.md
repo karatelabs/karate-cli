@@ -37,11 +37,12 @@
 - [x] `karate setup jre` with --force option
 
 ### Setup & Bootstrap
-- [x] `karate setup` - Full wizard (JRE + JAR)
-- [x] `karate setup jre` - JRE only
+- [x] `karate setup` - Interactive wizard
+- [x] `karate setup --all` - Install JAR + JRE non-interactively
+- [x] `karate setup --components jar` - JAR only (use system JRE)
+- [x] `karate setup --components jre` - JRE only
 - [x] Downloads latest Karate JAR from GitHub releases
 - [x] SHA256 checksum support infrastructure (not yet enforced)
-- [x] Non-interactive mode (--yes flag)
 
 ### Diagnostics
 - [x] `karate doctor` - Full system diagnostics
@@ -95,7 +96,7 @@
   - [ ] Download new JAR if available
   - [ ] Download new JRE if available
   - [ ] --version flag for specific version
-  - [ ] --yes flag for non-interactive
+  - [ ] --all flag for non-interactive
 
 #### Config Editing
 - [ ] `karate config` - Interactive editing
@@ -115,7 +116,7 @@
   - [x] Binary download from GitHub releases
   - [x] SHA256 verification
   - [x] PATH setup instructions
-  - [x] --yes flag for auto-setup after install
+  - [x] --all flag for auto-setup after install
 - [x] PowerShell script for Windows (install.ps1)
   - [x] Same functionality
   - [x] Auto-adds to user PATH
@@ -229,7 +230,7 @@ curl -fsSL https://karate.sh/install.sh | sh -s -- --bin-dir /tmp/karate-test
 # Test Linux installation in Docker
 docker run --rm ubuntu:latest bash -c '
   apt-get update && apt-get install -y curl
-  curl -fsSL https://karate.sh/install.sh | sh -s -- --bin-dir /tmp/bin --yes
+  curl -fsSL https://karate.sh/install.sh | sh -s -- --bin-dir /tmp/bin --all
   /tmp/bin/karate doctor --json
 '
 ```

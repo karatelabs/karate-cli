@@ -50,48 +50,21 @@ pub enum Command {
 
 #[derive(Args, Debug)]
 pub struct SetupArgs {
-    /// Non-interactive mode, accept all defaults
-    #[arg(short, long)]
-    pub yes: bool,
+    /// Install all components (JAR + JRE) non-interactively
+    #[arg(long, conflicts_with = "components")]
+    pub all: bool,
 
-    #[command(subcommand)]
-    pub subcommand: Option<SetupSubcommand>,
-}
+    /// Install specific components: jar, jre (comma-separated)
+    #[arg(long, value_delimiter = ',')]
+    pub components: Option<Vec<String>>,
 
-#[derive(Subcommand, Debug)]
-pub enum SetupSubcommand {
-    /// Set up PATH/symlinks only
-    Path(SetupPathArgs),
-
-    /// Install/update JRE only
-    #[command(disable_version_flag = true)]
-    Jre(SetupJreArgs),
-}
-
-#[derive(Args, Debug)]
-pub struct SetupPathArgs {
-    /// Directory to install the karate binary
-    #[arg(long)]
-    pub bin_dir: Option<String>,
-
-    /// Modify shell profile to add to PATH (Unix only)
-    #[arg(long)]
-    pub modify_shell_profile: bool,
-
-    /// Add to system PATH (Windows only)
-    #[arg(long)]
-    pub add_to_path: bool,
-}
-
-#[derive(Args, Debug)]
-pub struct SetupJreArgs {
-    /// Specific Java major version to install (e.g., 17, 21)
-    #[arg(long = "java-version")]
-    pub version: Option<String>,
-
-    /// Force download even if a suitable system JRE is available
+    /// Force download even if components are already installed
     #[arg(long, short)]
     pub force: bool,
+
+    /// Specific Java major version to install (e.g., 17, 21)
+    #[arg(long = "java-version")]
+    pub java_version: Option<String>,
 }
 
 // ============================================================================
@@ -100,9 +73,9 @@ pub struct SetupJreArgs {
 
 #[derive(Args, Debug)]
 pub struct UpgradeArgs {
-    /// Non-interactive mode
-    #[arg(short, long)]
-    pub yes: bool,
+    /// Non-interactive mode (upgrade all components)
+    #[arg(long)]
+    pub all: bool,
 
     /// Install specific version instead of latest
     #[arg(long)]

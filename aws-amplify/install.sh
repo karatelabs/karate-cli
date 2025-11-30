@@ -1,10 +1,10 @@
 #!/bin/sh
 # Karate CLI Installer for Unix/macOS
 # Usage: curl -fsSL https://karate.sh/install.sh | sh
-#        curl -fsSL https://karate.sh/install.sh | sh -s -- --yes
+#        curl -fsSL https://karate.sh/install.sh | sh -s -- --all
 #
 # Options:
-#   --yes           Non-interactive, accept defaults
+#   --all           Download JRE + JAR immediately after install
 #   --bin-dir DIR   Install to custom directory (default: ~/.local/bin)
 #   --version VER   Install specific version (default: latest)
 
@@ -53,8 +53,8 @@ error() {
 # Parse arguments
 while [ $# -gt 0 ]; do
     case "$1" in
-        --yes|-y)
-            AUTO_SETUP="--yes"
+        --all|-a)
+            AUTO_SETUP="--all"
             shift
             ;;
         --bin-dir)
@@ -71,7 +71,7 @@ while [ $# -gt 0 ]; do
             echo "Usage: curl -fsSL https://karate.sh/install.sh | sh -s -- [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --yes, -y        Non-interactive, accept defaults"
+            echo "  --all, -a        Download JRE + JAR immediately after install"
             echo "  --bin-dir DIR    Install to custom directory (default: ~/.local/bin)"
             echo "  --version VER    Install specific version (default: latest)"
             echo "  --help, -h       Show this help"
@@ -276,7 +276,7 @@ main() {
     # Run setup if requested
     if [ -n "$AUTO_SETUP" ]; then
         info "Running karate setup..."
-        "${INSTALL_DIR}/karate" setup --yes
+        "${INSTALL_DIR}/karate" setup --all
     else
         echo "Next steps:"
         echo ""

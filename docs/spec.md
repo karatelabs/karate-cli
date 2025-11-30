@@ -96,9 +96,10 @@ Commands fully implemented in Rust:
 | Command | Description |
 |---------|-------------|
 | `karate setup` | Interactive first-run wizard |
-| `karate setup path` | Install CLI to PATH only |
-| `karate setup jre` | Install/update JRE only |
-| `karate upgrade [--yes] [--version <ver>]` | Update to latest/specific version |
+| `karate setup --all` | Install JAR + JRE non-interactively |
+| `karate setup --components jar` | Install JAR only (use system JRE) |
+| `karate setup --components jre` | Install/update JRE only |
+| `karate upgrade [--version <ver>]` | Update to latest/specific version |
 | `karate config [--global\|--local\|--show]` | Edit or view configuration |
 | `karate jre list` | List installed JREs |
 | `karate jre doctor` | Check JRE health |
@@ -132,7 +133,7 @@ Everything else passes through to the JVM:
   * Download matching JustJ JRE
   * Store in `~/.karate/`
   * Offer to add to PATH
-* Support automated/non-interactive mode (`--yes`).
+* Support automated/non-interactive mode (`--all` or `--components`).
 * **Explicit bootstrap required** — running `karate run` without setup shows helpful error.
 
 ### **B. Self-Management**
@@ -263,32 +264,38 @@ Runtime Commands (JAR-delegated):
 ### **setup**
 
 ```
-karate setup [--yes]
-karate setup path [--bin-dir <path>] [--modify-shell-profile]
-karate setup jre [--version <ver>]
+karate setup [--all] [--components <list>] [--force] [--java-version <ver>]
 ```
 
 Interactive first-run wizard. Downloads JRE and Karate JAR, offers PATH setup.
 
-**Subcommands:**
-* `path` — Only set up PATH/symlinks
-* `jre` — Only install/update JRE
-
 **Flags:**
-* `--yes` — Non-interactive, accept defaults
+* `--all` — Install all components (JAR + JRE) non-interactively
+* `--components <list>` — Install specific components (comma-separated: jar, jre)
+* `--force` — Force download even if components already installed
+* `--java-version <ver>` — Specific Java major version (default: 21)
+
+**Examples:**
+```
+karate setup                    # Interactive wizard
+karate setup --all              # Install everything non-interactively
+karate setup --components jar   # JAR only (use system JRE)
+karate setup --components jre   # JRE only
+karate setup --components jar,jre --force  # Force re-download both
+```
 
 ---
 
 ### **upgrade**
 
 ```
-karate upgrade [--yes] [--version <ver>]
+karate upgrade [--all] [--version <ver>]
 ```
 
 Check for updates and download new versions.
 
 **Flags:**
-* `--yes` — Non-interactive
+* `--all` — Non-interactive (upgrade all components)
 * `--version <ver>` — Install specific version instead of latest
 
 ---
@@ -639,7 +646,7 @@ irm https://karate.sh/install.ps1 | iex
 **Implementation:**
 - `karate.sh` serves a shell script that detects OS/arch
 - Downloads the correct binary from GitHub releases
-- Optionally runs `karate setup --yes` for full bootstrap
+- Optionally runs `karate setup --all` for full bootstrap
 - Provides clear instructions for PATH setup
 
 ## **10.2 npm Package**
@@ -678,7 +685,7 @@ karate-npm/
 2. Download matching Rust binary from GitHub releases
 3. Verify SHA256 checksum
 4. Make executable (Unix)
-5. First run triggers `karate setup --yes` for JRE/JAR bootstrap
+5. First run triggers `karate setup --all` for JRE/JAR bootstrap
 
 **User experience:**
 ```bash
@@ -713,7 +720,7 @@ class Karate < Formula
   end
 
   def post_install
-    system "#{bin}/karate", "setup", "--yes"
+    system "#{bin}/karate", "setup", "--all"
   end
 end
 ```

@@ -17,10 +17,10 @@ jobs:
           curl -fsSL https://karate.sh/install.sh | sh -s -- --bin-dir $HOME/.local/bin
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Setup Karate (JRE + JAR)
-        run: karate setup --yes
+      - name: Setup Karate (JAR only, use system JRE)
+        run: karate setup path --yes
 
-      - name: Verify installation
+      - name: Verify installation (system JRE)
         run: |
           karate version
           karate doctor
@@ -28,7 +28,24 @@ jobs:
       - name: Fetch smoke test
         run: curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/test/smoke.feature -o smoke.feature
 
-      - name: Run Karate smoke test
+      - name: Run smoke test with system JRE
+        run: |
+          karate smoke.feature
+          echo "Exit code: $?"
+
+      - name: Setup managed JRE
+        run: karate setup jre --yes
+
+      - name: Verify installation (managed JRE)
+        env:
+          JAVA_HOME: ""
+        run: |
+          karate version
+          karate doctor
+
+      - name: Run smoke test with managed JRE
+        env:
+          JAVA_HOME: ""
         run: |
           karate smoke.feature
           echo "Exit code: $?"
@@ -45,10 +62,10 @@ jobs:
           .\install.ps1 -InstallDir $InstallDir
           echo "$InstallDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Setup Karate (JRE + JAR)
-        run: karate setup --yes
+      - name: Setup Karate (JAR only, use system JRE)
+        run: karate setup path --yes
 
-      - name: Verify installation
+      - name: Verify installation (system JRE)
         run: |
           karate version
           karate doctor
@@ -56,7 +73,24 @@ jobs:
       - name: Fetch smoke test
         run: Invoke-WebRequest -Uri "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/test/smoke.feature" -OutFile smoke.feature
 
-      - name: Run Karate smoke test
+      - name: Run smoke test with system JRE
+        run: |
+          karate smoke.feature
+          echo "Exit code: $LASTEXITCODE"
+
+      - name: Setup managed JRE
+        run: karate setup jre --yes
+
+      - name: Verify installation (managed JRE)
+        env:
+          JAVA_HOME: ""
+        run: |
+          karate version
+          karate doctor
+
+      - name: Run smoke test with managed JRE
+        env:
+          JAVA_HOME: ""
         run: |
           karate smoke.feature
           echo "Exit code: $LASTEXITCODE"

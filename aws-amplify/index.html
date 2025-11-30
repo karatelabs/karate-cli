@@ -40,10 +40,32 @@
             width: 100%;
         }
 
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .logo-link {
+            display: flex;
+            align-items: center;
+        }
+
+        .logo-img {
+            height: 100px;
+            width: auto;
+        }
+
+        .header-text {
+            display: flex;
+            flex-direction: column;
+        }
+
         .logo {
-            font-size: 3rem;
+            font-size: 2rem;
             font-weight: 700;
-            margin-bottom: 0.5rem;
             background: linear-gradient(135deg, #818cf8, #c084fc);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -52,8 +74,8 @@
 
         .tagline {
             color: var(--text-muted);
-            font-size: 1.25rem;
-            margin-bottom: 3rem;
+            font-size: 1rem;
+            margin-top: 0.25rem;
         }
 
         .install-section {
@@ -185,8 +207,16 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="logo">Karate Unified Installer</h1>
-        <p class="tagline">Test automation made simple</p>
+        <div class="header">
+            <a href="https://karatelabs.io" class="logo-link">
+                <img src="https://raw.githubusercontent.com/karatelabs/.github/main/profile/karate-labs-wide-black.png"
+                     alt="Karate Labs" class="logo-img" />
+            </a>
+            <div class="header-text">
+                <h1 class="logo">Unified Installer</h1>
+                <p class="tagline">Test automation made simple</p>
+            </div>
+        </div>
 
         <div class="install-section">
             <h2>macOS / Linux</h2>

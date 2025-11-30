@@ -19,8 +19,8 @@ clap = { version = "4", features = ["derive", "env", "string"] }
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
-# HTTP client
-reqwest = { version = "0.12", features = ["json", "stream"] }
+# HTTP client (rustls for cross-compilation, avoids OpenSSL)
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
 
 # JSON/Config
 serde = { version = "1", features = ["derive"] }

@@ -2,6 +2,8 @@
 
 Command-line launcher for the [Karate](https://github.com/karatelabs/karate) testing framework. Downloads and manages JRE and Karate JAR automatically.
 
+> Easy to remember ! [https://karate.sh](https://karate.sh)
+
 ## Install
 
 **macOS / Linux:**

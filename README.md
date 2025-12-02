@@ -14,6 +14,15 @@ curl -fsSL https://karate.sh/install.sh | sh
 irm https://karate.sh/install.ps1 | iex
 ```
 
+**One-shot install** (downloads CLI + JRE + Karate JAR immediately):
+```bash
+# macOS / Linux
+curl -fsSL https://karate.sh/install.sh | sh -s -- --all
+
+# Windows (PowerShell)
+iex "& { $(irm https://karate.sh/install.ps1) } -All"
+```
+
 ## Quick Start
 
 ```bash
@@ -33,8 +42,12 @@ karate doctor
 |---------|-------------|
 | `karate setup` | Interactive setup wizard |
 | `karate setup --all` | Non-interactive setup (JAR + JRE) |
+| `karate setup --item jar` | Install JAR only (use system JRE) |
+| `karate setup --item jre` | Install JRE only |
 | `karate update` | Check for and install updates |
+| `karate update --all` | Update all components non-interactively |
 | `karate doctor` | System diagnostics |
+| `karate doctor --json` | JSON output (for CI/scripts) |
 | `karate version` | Show version info |
 
 To update the CLI itself, re-run the install command.

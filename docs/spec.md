@@ -807,14 +807,80 @@ npm bin/karate → Rust CLI → JRE/JAR (self-managed)
 
 # **12. Future Enhancements (Post-MVP)**
 
+## **12.1 Central Manifest at karate.sh**
+
+Host a central manifest at `https://karate.sh/manifest.json` that provides:
+
+* Download locations for all Karate releases (OSS and commercial)
+* Version discovery for Karate JAR, JRE, and plugins
+* Checksums for integrity verification
+* Support for commercial/non-open-source tools (Xplorer, MCP server, etc.)
+
+This enables the CLI to resolve downloads from a single authoritative source rather than hardcoded GitHub URLs.
+
+## **12.2 Rust-Native `init` Command**
+
+Move `karate init` from JAR-delegated to Rust-native. The command scaffolds project structure *before* Java is involved, making it unsuitable for JAR delegation.
+
+```
+karate init [name] [--type <type>] [--template <template>]
+```
+
+**Arguments:**
+* `name` — Project directory name (default: current directory)
+
+**Flags:**
+* `--type <type>` — Project type: `standalone`, `maven`, `gradle` (skips interactive prompt)
+* `--template <template>` — Template name (e.g., `api`, `openapi`, `spring`)
+* `--force` — Overwrite existing files
+
+**Interactive flow:**
+```
+$ karate init my-project
+
+? Project type:
+  > standalone (just Karate, no build tool)
+    maven (Java project with pom.xml)
+    gradle (Java project with build.gradle)
+
+? Template:
+  > api (basic API testing)
+    openapi (OpenAPI/Swagger integration)
+    spring (Spring Boot integration)
+
+Creating project: my-project/
+  ├── karate.json
+  ├── src/test/features/
+  │   └── example.feature
+  └── karate-config.js
+
+Done! Run tests with: cd my-project && karate run
+```
+
+**Project type details:**
+
+| Type | Output | Use case |
+|------|--------|----------|
+| `standalone` | `karate.json`, features only | Quick start, non-Java teams, LLM agents |
+| `maven` | `pom.xml` with karate dependency | Java teams, CI integration |
+| `gradle` | `build.gradle` with karate dependency | Java teams preferring Gradle |
+
+**Extended templates (future):**
+* `karate init --template openapi` — Generate tests from OpenAPI spec
+* `karate init --template spring` — Spring Boot integration with test harness
+* `karate init --template graphql` — GraphQL testing scaffold
+* Custom templates from git repos: `karate init --template https://github.com/...`
+
+## **12.3 Other Enhancements**
+
 * `karate lock` → freeze exact versions + checksums in project
 * Shell completions (bash, zsh, fish, PowerShell)
-* Templated project scaffolds (`karate init --template spring-openapi`)
 * "Agent mode" improvements for LLM-based automation
 * Docker images pre-baked with launcher + runtime
 * Local manifest override for air-gapped networks
 * Telemetry (opt-in) with auto GitHub issue creation for crashes
 * System JRE detection and preference
+* Deprecate Maven archetype in favor of `karate init --type maven`
 
 ---
 

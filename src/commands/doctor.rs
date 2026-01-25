@@ -297,19 +297,27 @@ fn print_report(report: &DoctorReport) {
     // Config
     println!("{}", style("Configuration").bold().underlined());
     if report.config.global_exists {
-        println!("  Global: {} {}", style("✓").green(), report.config.global_path);
+        println!(
+            "  Global: {} {}",
+            style("✓").green(),
+            report.config.global_path
+        );
     } else {
         println!(
             "  Global: {}",
-            style(format!("(none) create with: karate config --global")).dim()
+            style("(none) create with: karate config --global").dim()
         );
     }
     if report.config.local_exists {
-        println!("  Local:  {} {}", style("✓").green(), report.config.local_path);
+        println!(
+            "  Local:  {} {}",
+            style("✓").green(),
+            report.config.local_path
+        );
     } else {
         println!(
             "  Local:  {}",
-            style(format!("(none) create with: karate config --local")).dim()
+            style("(none) create with: karate config --local").dim()
         );
     }
 }

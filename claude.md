@@ -32,6 +32,17 @@ This allows projects to override specific resources (e.g., local extensions) whi
 - `KARATE_HOME` - Override default `~/.karate` global home location
 - `NO_COLOR` - Disable colored output
 
+## Pre-Commit Checks
+
+**Always run before committing:**
+
+```bash
+cargo fmt --all
+cargo clippy -- -D warnings
+```
+
+CI will fail if formatting is incorrect or clippy warnings exist.
+
 ## Testing
 
 ```bash

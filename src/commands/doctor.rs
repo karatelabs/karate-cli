@@ -110,8 +110,12 @@ fn build_report() -> Result<DoctorReport> {
     // Karate JAR info
     let karate_jar = find_karate_jar(&paths);
 
-    // Extensions
-    let extensions = list_jars(&paths.ext);
+    // Extensions (from both global and local ext directories)
+    let extensions: Vec<String> = paths
+        .all_ext_dirs()
+        .iter()
+        .flat_map(|dir| list_jars(dir))
+        .collect();
 
     // Config info
     let local_config_path = KaratePaths::local_config();
@@ -292,16 +296,20 @@ fn print_report(report: &DoctorReport) {
 
     // Config
     println!("{}", style("Configuration").bold().underlined());
-    let global_status = if report.config.global_exists {
-        style("✓").green()
+    if report.config.global_exists {
+        println!("  Global: {} {}", style("✓").green(), report.config.global_path);
     } else {
-        style("-").dim()
-    };
-    let local_status = if report.config.local_exists {
-        style("✓").green()
+        println!(
+            "  Global: {}",
+            style(format!("(none) create with: karate config --global")).dim()
+        );
+    }
+    if report.config.local_exists {
+        println!("  Local:  {} {}", style("✓").green(), report.config.local_path);
     } else {
-        style("-").dim()
-    };
-    println!("  Global: {} {}", global_status, report.config.global_path);
-    println!("  Local:  {} {}", local_status, report.config.local_path);
+        println!(
+            "  Local:  {}",
+            style(format!("(none) create with: karate config --local")).dim()
+        );
+    }
 }

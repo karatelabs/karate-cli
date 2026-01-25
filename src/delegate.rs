@@ -115,13 +115,15 @@ fn find_karate_jar(dist_dir: &Path) -> Result<PathBuf> {
 fn build_classpath(paths: &KaratePaths, jar_path: &Path) -> Result<String> {
     let mut classpath_parts = vec![jar_path.to_string_lossy().to_string()];
 
-    // Add user extensions from ext/
-    if paths.ext.exists() {
-        for entry in std::fs::read_dir(&paths.ext)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.extension().map(|e| e == "jar").unwrap_or(false) {
-                classpath_parts.push(path.to_string_lossy().to_string());
+    // Add extensions from both global and local ext directories
+    for ext_dir in paths.all_ext_dirs() {
+        if ext_dir.exists() {
+            for entry in std::fs::read_dir(&ext_dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.extension().map(|e| e == "jar").unwrap_or(false) {
+                    classpath_parts.push(path.to_string_lossy().to_string());
+                }
             }
         }
     }

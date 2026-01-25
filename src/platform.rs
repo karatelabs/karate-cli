@@ -230,6 +230,19 @@ impl KaratePaths {
     pub fn has_local_overrides(&self) -> bool {
         self.local.is_some()
     }
+
+    /// Get all ext directories to check (global + optional local).
+    /// Extensions are composable: both global and local ext jars are loaded.
+    pub fn all_ext_dirs(&self) -> Vec<PathBuf> {
+        let mut dirs = vec![self.home.join("ext")];
+        if let Some(ref local) = self.local {
+            let local_ext = local.join("ext");
+            if local_ext.exists() {
+                dirs.push(local_ext);
+            }
+        }
+        dirs
+    }
 }
 
 impl Default for KaratePaths {

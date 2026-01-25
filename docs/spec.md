@@ -403,11 +403,12 @@ Karate CLI uses a two-level resolution for resources (dist, jre, ext):
 - `.karate/` folder in current working directory
 
 **Resolution per resource:**
-- If `.karate/{resource}/` exists in cwd → use local
-- Otherwise → use global `{home}/{resource}/`
+- `dist/`: If `.karate/dist/` exists in cwd → use local, otherwise → use global
+- `jre/`: If `.karate/jre/` exists in cwd → use local, otherwise → use global
+- `ext/`: Extensions from BOTH global `~/.karate/ext/` AND local `.karate/ext/` are loaded (composable, not override)
 
 **Example:** A project with `.karate/ext/` but no `.karate/jre/`:
-- Extensions: loaded from `.karate/ext/` (local)
+- Extensions: loaded from BOTH `~/.karate/ext/` (global) AND `.karate/ext/` (local)
 - JRE: loaded from `~/.karate/jre/` (global fallback)
 - Dist: loaded from `~/.karate/dist/` (global fallback)
 

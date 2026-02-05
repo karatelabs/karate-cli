@@ -7,20 +7,23 @@ use sha2::{Digest, Sha256};
 use std::path::Path;
 use tokio::io::AsyncWriteExt;
 
-/// GitHub release info
+/// GitHub release info (kept as fallback if manifest unavailable)
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct GitHubRelease {
     pub tag_name: String,
     pub assets: Vec<GitHubAsset>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct GitHubAsset {
     pub name: String,
     pub browser_download_url: String,
 }
 
-/// Fetch latest release info from GitHub
+/// Fetch latest release info from GitHub (fallback if manifest unavailable)
+#[allow(dead_code)]
 pub async fn fetch_latest_release(owner: &str, repo: &str) -> Result<GitHubRelease> {
     let url = format!(
         "https://api.github.com/repos/{}/{}/releases/latest",

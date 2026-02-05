@@ -1,6 +1,6 @@
 # Karate CLI Development Tracker
 
-> Last updated: 2025-11-30
+> Last updated: 2025-02-05
 
 ## Progress Overview
 
@@ -12,7 +12,8 @@
 | JAR Delegation | ✅ Complete | Pass-through to Karate JAR works |
 | Doctor Command | ✅ Complete | Full diagnostics with JSON output |
 | GitHub Releases | ✅ Complete | v0.1.0 with all platform binaries + checksums |
-| karate.sh Site | ✅ Complete | AWS Amplify hosting, install scripts |
+| karate.sh Site | ✅ Complete | Migrated to Netlify, manifest.json live |
+| Central Manifest | ✅ Complete | karate.sh/manifest.json with SHA256 checksums |
 | Distribution | 🔄 In Progress | npm, Homebrew, Chocolatey pending |
 
 ---
@@ -114,7 +115,7 @@
 
 ### Phase 2: Distribution
 
-#### karate.sh Universal Installer ✅
+#### karate.sh Site & Central Manifest ✅
 - [x] Shell script for Unix/macOS (install.sh)
   - [x] OS/arch detection (darwin/linux, x64/arm64)
   - [x] Binary download from GitHub releases
@@ -124,9 +125,17 @@
 - [x] PowerShell script for Windows (install.ps1)
   - [x] Same functionality
   - [x] Auto-adds to user PATH
-- [x] AWS Amplify hosting at karate.sh
+- [x] **Migrated to Netlify** (from AWS Amplify)
   - [x] Landing page with install instructions
   - [x] install.sh and install.ps1 served
+  - [x] CORS headers for manifest.json
+- [x] **Central manifest at karate.sh/manifest.json**
+  - [x] Schema: artifacts, versions, channels, SHA256 checksums
+  - [x] Channels: stable, beta
+  - [x] CLI fetches from manifest (avoids GitHub API rate limits)
+  - [x] Version pinning via config (karate_version)
+  - [x] Channel selection via config (channel)
+  - [x] Source: [github.com/karatelabs/karate-sh](https://github.com/karatelabs/karate-sh)
 
 **Install URLs:**
 - Unix/macOS: `curl -fsSL https://karate.sh/install.sh | sh`
@@ -220,6 +229,30 @@ KARATE_HOME=./home/.karate cargo run -- run --help
 mkdir -p .karate/ext
 cargo run -- doctor  # Shows local override active
 ```
+
+### Netlify Migration Testing (2025-02-05) 🔄 PENDING
+
+Waiting for DNS propagation to karate.sh. Once live, test:
+
+- [ ] **Manifest endpoint**: `curl https://karate.sh/manifest.json | jq .schema_version`
+- [ ] **CORS headers**: `curl -I https://karate.sh/manifest.json` includes `access-control-allow-origin: *`
+- [ ] **Install scripts**:
+  - [ ] `curl https://karate.sh/install.sh` returns script
+  - [ ] `curl https://karate.sh/install.ps1` returns script
+- [ ] **Landing page**: `curl -I https://karate.sh/` returns 200
+- [ ] **CLI setup from manifest**:
+  ```bash
+  KARATE_HOME=./home/.karate cargo run -- setup --all --force
+  # Should fetch from karate.sh/manifest.json
+  # Should download JAR with SHA256 verification
+  ```
+- [ ] **CLI update from manifest**:
+  ```bash
+  KARATE_HOME=./home/.karate cargo run -- update
+  # Should check versions via manifest
+  ```
+- [ ] **Channel selection**: Test `channel: "beta"` in config
+- [ ] **Version pinning**: Test `karate_version: "1.5.2"` in config
 
 ### Universal Installer Testing (2025-11-30)
 

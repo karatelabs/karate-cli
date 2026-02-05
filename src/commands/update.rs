@@ -1,9 +1,11 @@
 //! Update command - check for and install updates to Karate JAR and JRE.
 
 use crate::cli::UpdateArgs;
-use crate::download::{download_file, extract_tar_gz, fetch_latest_release, resolve_justj_jre};
+use crate::config::load_merged_config;
+use crate::download::{download_file, extract_tar_gz, resolve_justj_jre};
 use crate::error::ExitCode;
 use crate::jre::MIN_JAVA_VERSION;
+use crate::manifest::fetch_manifest;
 use crate::platform::{KaratePaths, Platform};
 use anyhow::Result;
 use console::style;
@@ -58,11 +60,25 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
     let mut jar_status: Option<ComponentStatus> = None;
     let mut jre_status: Option<ComponentStatus> = None;
 
+    // Load config for channel preference
+    let config = load_merged_config()?;
+    let channel = &config.channel;
+
+    // Fetch manifest once for JAR checks
+    let manifest = if check_jar {
+        Some(fetch_manifest().await?)
+    } else {
+        None
+    };
+
     // Check JAR status
     if check_jar {
         let installed = get_installed_jar_version(&paths.dist);
-        let latest_release = fetch_latest_release("karatelabs", "karate").await?;
-        let latest = latest_release.tag_name.trim_start_matches('v').to_string();
+        let latest = manifest
+            .as_ref()
+            .and_then(|m| m.get_latest_version("karate", channel))
+            .map(|s| s.to_string())
+            .ok_or_else(|| anyhow::anyhow!("No '{}' karate version found in manifest", channel))?;
 
         let has_update = match &installed {
             Some(v) => v != &latest,
@@ -274,19 +290,22 @@ fn get_installed_jre_version(jre_dir: &PathBuf) -> Option<String> {
         })
 }
 
-/// Download and update Karate JAR
+/// Download and update Karate JAR using manifest from karate.sh
 async fn update_karate_jar(paths: &KaratePaths) -> Result<()> {
-    let release = fetch_latest_release("karatelabs", "karate").await?;
-    let version = release.tag_name.trim_start_matches('v');
+    let config = load_merged_config()?;
+    let channel = &config.channel;
 
-    // Find the main karate JAR
+    let manifest = fetch_manifest().await?;
+
+    let version = manifest
+        .get_latest_version("karate", channel)
+        .ok_or_else(|| anyhow::anyhow!("No '{}' karate version found in manifest", channel))?;
+
+    let (url, sha256) = manifest
+        .get_jar_download("karate", version)
+        .ok_or_else(|| anyhow::anyhow!("No download URL found for karate {}", version))?;
+
     let jar_name = format!("karate-{}.jar", version);
-    let asset = release
-        .assets
-        .iter()
-        .find(|a| a.name == jar_name)
-        .ok_or_else(|| anyhow::anyhow!("Could not find {} in release assets", jar_name))?;
-
     println!("  Downloading {}...", jar_name);
 
     // Remove old JAR(s) first
@@ -305,7 +324,7 @@ async fn update_karate_jar(paths: &KaratePaths) -> Result<()> {
     }
 
     let dest = paths.dist.join(&jar_name);
-    download_file(&asset.browser_download_url, &dest, None).await?;
+    download_file(url, &dest, Some(sha256)).await?;
 
     println!("  {} JAR updated to {}", style("✓").green(), version);
     Ok(())

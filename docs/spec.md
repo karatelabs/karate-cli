@@ -57,7 +57,7 @@ Managed by the launcher:
 A simple online manifest the launcher reads, e.g.:
 
 ```
-https://github.com/karatelabs/karate-cli-manifest/releases/latest/download/manifest.json
+https://karate.sh/manifest.json
 ```
 
 Contains channel → versions → URLs → checksums.
@@ -482,54 +482,97 @@ Note: A `.karate` folder with only `karate.json` is treated as config-only, not 
 
 ---
 
-# **8. GitHub Manifest Format**
+# **8. Release Manifest (karate.sh)**
+
+The CLI fetches artifact download URLs from a central manifest hosted at karate.sh. This avoids GitHub API rate limits and provides a single source of truth for all releases.
 
 ## **Location**
 
 ```
-https://github.com/karatelabs/karate-cli-manifest/releases/latest/download/manifest.json
+https://karate.sh/manifest.json
 ```
+
+**Source repository:** [github.com/karatelabs/karate-sh](https://github.com/karatelabs/karate-sh) (private)
 
 ## **Manifest Schema**
 
 ```json
 {
   "schema_version": 1,
-  "channels": {
-    "stable": {
-      "version": "2.0.0",
-      "karate_jar": {
-        "url": "https://github.com/karatelabs/karate/releases/download/v2.0.0/karate-2.0.0-all.jar",
-        "sha256": "abc123..."
-      },
-      "jre": {
-        "version": "17.0.12",
-        "platforms": {
-          "macos-aarch64": { "url": "...", "sha256": "..." },
-          "macos-x64":     { "url": "...", "sha256": "..." },
-          "linux-x64":     { "url": "...", "sha256": "..." },
-          "linux-aarch64": { "url": "...", "sha256": "..." },
-          "windows-x64":   { "url": "...", "sha256": "..." }
-        }
-      },
-      "plugins": {
-        "xplorer": {
-          "version": "1.3.0",
-          "url": "...",
-          "sha256": "..."
+  "generated_at": "2025-02-05T00:00:00Z",
+  "artifacts": {
+    "karate-cli": {
+      "description": "Karate CLI - Rust binary launcher",
+      "repo": "karatelabs/karate-cli",
+      "versions": {
+        "0.1.2": {
+          "channels": ["stable"],
+          "released_at": "2025-11-30T00:00:00Z",
+          "platforms": {
+            "macos-aarch64": { "url": "https://github.com/.../karate-darwin-arm64.tar.gz", "sha256": "..." },
+            "macos-x64":     { "url": "https://github.com/.../karate-darwin-x64.tar.gz", "sha256": "..." },
+            "linux-x64":     { "url": "https://github.com/.../karate-linux-x64.tar.gz", "sha256": "..." },
+            "linux-aarch64": { "url": "https://github.com/.../karate-linux-arm64.tar.gz", "sha256": "..." },
+            "windows-x64":   { "url": "https://github.com/.../karate-windows-x64.zip", "sha256": "..." }
+          }
         }
       }
     },
-    "beta": { ... }
+    "karate": {
+      "description": "Karate Core - Standalone testing JAR",
+      "repo": "karatelabs/karate",
+      "versions": {
+        "1.5.2": {
+          "channels": ["stable"],
+          "released_at": "2025-11-30T00:00:00Z",
+          "url": "https://github.com/karatelabs/karate/releases/download/v1.5.2/karate-1.5.2.jar",
+          "sha256": "ccf4740c64a154c4c2457d6f0fd19a8f37902c29d32aac4e23012e0a878614be"
+        }
+      }
+    }
   },
-  "defaults": {
-    "karate_jar_url_template": "https://github.com/karatelabs/karate/releases/download/v{version}/karate-{version}-all.jar",
-    "jre_version": "17.0.12"
+  "channel_defaults": {
+    "stable": { "karate-cli": "0.1.2", "karate": "1.5.2" },
+    "beta": {}
   }
 }
 ```
 
-**Note:** The `defaults` section enables the launcher to work without fetching manifest, using URL templates and conventions.
+## **Channels**
+
+- **stable** — Production releases
+- **beta** — Pre-release versions (RC, alpha, etc.)
+
+Users can switch channels via config:
+```bash
+karate config --global   # Set "channel": "beta"
+```
+
+## **Adding a New Release**
+
+When a new Karate release is published:
+
+1. Clone the `karatelabs/karate-sh` repository
+2. Edit `public/manifest.json`:
+   - Add new version entry under the artifact
+   - Get SHA256 from GitHub release `.sha256` files
+   - Update `channel_defaults.stable` if promoting to stable
+3. Commit and push to main
+4. Netlify auto-deploys to karate.sh
+
+See the [karate-sh README](https://github.com/karatelabs/karate-sh) for detailed instructions.
+
+## **Version Pinning**
+
+Users can pin a specific version in their config:
+```json
+{
+  "channel": "stable",
+  "karate_version": "1.5.2"
+}
+```
+
+Setting `karate_version` to anything other than `"latest"` will use that exact version.
 
 ---
 
@@ -808,16 +851,16 @@ npm bin/karate → Rust CLI → JRE/JAR (self-managed)
 
 # **12. Future Enhancements (Post-MVP)**
 
-## **12.1 Central Manifest at karate.sh**
+## **12.1 Central Manifest at karate.sh** ✅ IMPLEMENTED
 
-Host a central manifest at `https://karate.sh/manifest.json` that provides:
+The central manifest is now live at `https://karate.sh/manifest.json`:
 
-* Download locations for all Karate releases (OSS and commercial)
-* Version discovery for Karate JAR, JRE, and plugins
-* Checksums for integrity verification
-* Support for commercial/non-open-source tools (Xplorer, MCP server, etc.)
+* Download locations for karate-cli and karate JAR
+* SHA-256 checksums for integrity verification
+* Channel support (stable, beta) for version management
+* Hosted on Netlify, managed via [github.com/karatelabs/karate-sh](https://github.com/karatelabs/karate-sh)
 
-This enables the CLI to resolve downloads from a single authoritative source rather than hardcoded GitHub URLs.
+See Section 8 for manifest schema and release workflow.
 
 ## **12.2 Rust-Native `init` Command**
 

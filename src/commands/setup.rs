@@ -1,9 +1,11 @@
 //! Setup command - first-run wizard and targeted setup.
 
 use crate::cli::SetupArgs;
-use crate::download::{download_file, extract_tar_gz, fetch_latest_release, resolve_justj_jre};
+use crate::config::load_merged_config;
+use crate::download::{download_file, extract_tar_gz, resolve_justj_jre};
 use crate::error::ExitCode;
 use crate::jre::{find_active_jre, find_system_jre, JreSource, MIN_JAVA_VERSION};
+use crate::manifest::{fetch_manifest, MANIFEST_URL};
 use crate::platform::{KaratePaths, Platform};
 use anyhow::Result;
 use console::style;
@@ -253,28 +255,74 @@ async fn download_jre(platform: &Platform, paths: &KaratePaths, java_version: u8
     Ok(())
 }
 
-/// Download Karate JAR from GitHub releases
+/// Download Karate JAR using manifest from karate.sh
 async fn download_karate_jar(paths: &KaratePaths) -> Result<()> {
-    println!("  Fetching latest release info...");
+    // Load config to get channel and version preferences
+    let config = load_merged_config()?;
+    let channel = &config.channel;
 
-    let release = fetch_latest_release("karatelabs", "karate").await?;
-    let version = release.tag_name.trim_start_matches('v');
+    println!("  Fetching release manifest from karate.sh...");
 
-    println!("  Latest version: {}", style(version).green());
+    let manifest = fetch_manifest().await.map_err(|e| {
+        anyhow::anyhow!(
+            "Failed to fetch manifest from {}: {}\n\n\
+            Check your network connection or try again later.",
+            MANIFEST_URL,
+            e
+        )
+    })?;
 
-    // Find the main karate JAR (not robot, not sbom)
+    // Determine version: use config if pinned, otherwise get latest from channel
+    let version = if config.karate_version != "latest" {
+        // User pinned a specific version
+        println!(
+            "  Using pinned version: {}",
+            style(&config.karate_version).cyan()
+        );
+        config.karate_version.clone()
+    } else {
+        // Get latest from configured channel
+        manifest
+            .get_latest_version("karate", channel)
+            .map(|s| s.to_string())
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No '{}' karate version found in manifest.\n\
+                    Available channels: stable, beta\n\
+                    Set channel with: karate config --global",
+                    channel
+                )
+            })?
+    };
+
+    if channel != "stable" {
+        println!("  Channel: {}", style(channel).yellow());
+    }
+    println!("  Version: {}", style(&version).green());
+
+    let (url, sha256) = manifest
+        .get_jar_download("karate", &version)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "No download URL found for karate {} in manifest.\n\
+                Check available versions at: {}",
+                version,
+                MANIFEST_URL
+            )
+        })?;
+
     let jar_name = format!("karate-{}.jar", version);
-    let asset = release
-        .assets
-        .iter()
-        .find(|a| a.name == jar_name)
-        .ok_or_else(|| anyhow::anyhow!("Could not find {} in release assets", jar_name))?;
-
     println!("  Downloading {}...", jar_name);
-    println!("  {}", style(&asset.browser_download_url).dim());
+    println!("  {}", style(url).dim());
 
     let dest = paths.dist.join(&jar_name);
-    download_file(&asset.browser_download_url, &dest, None).await?;
+    download_file(url, &dest, Some(sha256)).await?;
+
+    // Cache the manifest for future use
+    let cache_path = paths.cache.join("manifest.json");
+    if let Err(e) = crate::manifest::save_manifest_cache(&manifest, &cache_path) {
+        eprintln!("  {} Failed to cache manifest: {}", style("!").yellow(), e);
+    }
 
     println!("  {} Karate JAR installed", style("✓").green());
     Ok(())

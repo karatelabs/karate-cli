@@ -60,9 +60,9 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
     let mut jar_status: Option<ComponentStatus> = None;
     let mut jre_status: Option<ComponentStatus> = None;
 
-    // Load config for channel preference
+    // Load config for channel preference (command line overrides config)
     let config = load_merged_config()?;
-    let channel = &config.channel;
+    let channel = args.channel.as_deref().unwrap_or(&config.channel);
 
     // Fetch manifest once for JAR checks
     let manifest = if check_jar {
@@ -219,7 +219,7 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
                 style(format!("[{}/{}]", step, total_steps)).bold().dim(),
                 status.latest_version
             );
-            update_karate_jar(&paths).await?;
+            update_karate_jar(&paths, channel).await?;
         }
     }
 
@@ -291,10 +291,7 @@ fn get_installed_jre_version(jre_dir: &PathBuf) -> Option<String> {
 }
 
 /// Download and update Karate JAR using manifest from karate.sh
-async fn update_karate_jar(paths: &KaratePaths) -> Result<()> {
-    let config = load_merged_config()?;
-    let channel = &config.channel;
-
+async fn update_karate_jar(paths: &KaratePaths, channel: &str) -> Result<()> {
     let manifest = fetch_manifest().await?;
 
     let version = manifest

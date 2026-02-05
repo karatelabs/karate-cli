@@ -65,6 +65,10 @@ pub struct SetupArgs {
     /// Specific Java major version to install (e.g., 17, 21)
     #[arg(long = "java-version")]
     pub java_version: Option<String>,
+
+    /// Release channel: stable or beta (overrides config)
+    #[arg(long)]
+    pub channel: Option<String>,
 }
 
 // ============================================================================
@@ -80,6 +84,10 @@ pub struct UpdateArgs {
     /// Update specific item: jar, jre
     #[arg(long)]
     pub item: Option<String>,
+
+    /// Release channel: stable or beta (overrides config)
+    #[arg(long)]
+    pub channel: Option<String>,
 }
 
 // ============================================================================

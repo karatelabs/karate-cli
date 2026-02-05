@@ -1,6 +1,6 @@
 # Karate CLI Development Tracker
 
-> Last updated: 2025-02-05
+> Last updated: 2026-02-05
 
 ## Progress Overview
 
@@ -42,8 +42,8 @@
 - [x] `karate setup --all` - Install JAR + JRE non-interactively
 - [x] `karate setup --item jar` - JAR only (use system JRE)
 - [x] `karate setup --item jre` - JRE only
-- [x] Downloads latest Karate JAR from GitHub releases
-- [x] SHA256 checksum support infrastructure (not yet enforced)
+- [x] Downloads Karate JAR via karate.sh/manifest.json
+- [x] SHA256 checksum verification enforced on downloads
 
 ### Diagnostics
 - [x] `karate doctor` - Full system diagnostics
@@ -118,13 +118,15 @@
 #### karate.sh Site & Central Manifest ✅
 - [x] Shell script for Unix/macOS (install.sh)
   - [x] OS/arch detection (darwin/linux, x64/arm64)
-  - [x] Binary download from GitHub releases
-  - [x] SHA256 verification
+  - [x] Fetches version + URL from karate.sh/manifest.json
+  - [x] SHA256 verification from manifest
   - [x] PATH setup instructions
   - [x] --all flag for auto-setup after install
+  - [x] --channel flag for stable/beta selection
 - [x] PowerShell script for Windows (install.ps1)
   - [x] Same functionality
   - [x] Auto-adds to user PATH
+  - [x] -Channel parameter for stable/beta selection
 - [x] **Migrated to Netlify** (from AWS Amplify)
   - [x] Landing page with install instructions
   - [x] install.sh and install.ps1 served
@@ -208,10 +210,9 @@
 
 ## Known Issues / Tech Debt
 
-1. **SHA256 verification not enforced** - Infrastructure exists but checksums not validated
-2. **JRE extraction assumes tar.gz** - Windows may need .zip support
-3. **No retry logic for downloads** - Single attempt, fails on network issues
-4. **Config file not created by default** - User must create manually or use --show
+1. **JRE extraction assumes tar.gz** - Windows may need .zip support
+2. **No retry logic for downloads** - Single attempt, fails on network issues
+3. **Config file not created by default** - User must create manually or use --show
 
 ---
 
@@ -230,29 +231,17 @@ mkdir -p .karate/ext
 cargo run -- doctor  # Shows local override active
 ```
 
-### Netlify Migration Testing (2025-02-05) 🔄 PENDING
+### Netlify Migration Testing (2026-02-05) ✅ COMPLETE
 
-Waiting for DNS propagation to karate.sh. Once live, test:
-
-- [ ] **Manifest endpoint**: `curl https://karate.sh/manifest.json | jq .schema_version`
-- [ ] **CORS headers**: `curl -I https://karate.sh/manifest.json` includes `access-control-allow-origin: *`
-- [ ] **Install scripts**:
-  - [ ] `curl https://karate.sh/install.sh` returns script
-  - [ ] `curl https://karate.sh/install.ps1` returns script
-- [ ] **Landing page**: `curl -I https://karate.sh/` returns 200
-- [ ] **CLI setup from manifest**:
-  ```bash
-  KARATE_HOME=./home/.karate cargo run -- setup --all --force
-  # Should fetch from karate.sh/manifest.json
-  # Should download JAR with SHA256 verification
-  ```
-- [ ] **CLI update from manifest**:
-  ```bash
-  KARATE_HOME=./home/.karate cargo run -- update
-  # Should check versions via manifest
-  ```
-- [ ] **Channel selection**: Test `channel: "beta"` in config
-- [ ] **Version pinning**: Test `karate_version: "1.5.2"` in config
+- [x] **Manifest endpoint**: `curl https://karate.sh/manifest.json | jq .schema_version`
+- [x] **CORS headers**: `curl -I https://karate.sh/manifest.json` includes `access-control-allow-origin: *`
+- [x] **Install scripts**:
+  - [x] `curl https://karate.sh/install.sh` returns script (now uses manifest)
+  - [x] `curl https://karate.sh/install.ps1` returns script (now uses manifest)
+- [x] **Landing page**: `curl -I https://karate.sh/` returns 200
+- [x] **CLI setup from manifest**: Downloads JAR with SHA256 verification
+- [x] **Channel selection**: `channel: "beta"` downloads karate 2.0.0.RC2
+- [x] **Version pinning**: `karate_version: "1.5.2"` works
 
 ### Universal Installer Testing (2025-11-30)
 

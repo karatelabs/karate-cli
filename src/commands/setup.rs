@@ -40,7 +40,7 @@ pub async fn run(args: SetupArgs) -> Result<ExitCode> {
     };
 
     // Non-interactive install of specified items
-    run_setup_items(&items, args.force, args.java_version).await
+    run_setup_items(&items, args.force, args.java_version, args.channel).await
 }
 
 /// Non-interactive setup of specified items.
@@ -48,6 +48,7 @@ async fn run_setup_items(
     items: &HashSet<String>,
     force: bool,
     java_version: Option<String>,
+    channel_override: Option<String>,
 ) -> Result<ExitCode> {
     let platform = Platform::detect()?;
     let paths = KaratePaths::new();
@@ -135,7 +136,7 @@ async fn run_setup_items(
             if force && existing_jar.is_some() {
                 println!("  {} Force mode: re-downloading JAR", style("!").yellow());
             }
-            download_karate_jar(&paths).await?;
+            download_karate_jar(&paths, channel_override.as_deref()).await?;
         }
         println!();
     }
@@ -207,7 +208,7 @@ async fn run_setup_wizard() -> Result<ExitCode> {
     if existing_jar.is_some() {
         println!("  {} Karate JAR already installed", style("✓").green());
     } else {
-        download_karate_jar(&paths).await?;
+        download_karate_jar(&paths, None).await?;
     }
 
     println!();
@@ -256,10 +257,10 @@ async fn download_jre(platform: &Platform, paths: &KaratePaths, java_version: u8
 }
 
 /// Download Karate JAR using manifest from karate.sh
-async fn download_karate_jar(paths: &KaratePaths) -> Result<()> {
+async fn download_karate_jar(paths: &KaratePaths, channel_override: Option<&str>) -> Result<()> {
     // Load config to get channel and version preferences
     let config = load_merged_config()?;
-    let channel = &config.channel;
+    let channel = channel_override.unwrap_or(&config.channel);
 
     println!("  Fetching release manifest from karate.sh...");
 

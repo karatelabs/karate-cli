@@ -316,7 +316,7 @@ Check for updates and download new versions. Interactive by default.
 
 **Flags:**
 * `--all` — Update all components non-interactively
-* `--item <name>` — Update specific item: jar, jre
+* `--item <name>` — Update specific item: jar, jre, cli
 
 ---
 

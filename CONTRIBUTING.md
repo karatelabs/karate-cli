@@ -162,6 +162,96 @@ git tag -d v0.2.0 && git push origin --delete v0.2.0
 
 Note: Deleting a tag does NOT delete the GitHub Release. Delete the release manually from the GitHub UI if needed.
 
+## Testing CLI Self-Update Locally
+
+The `karate update --item cli` command can be tested without a real release using `KARATE_MANIFEST_URL` to point at a local HTTP server. The [`karate-sh`](https://github.com/karatelabs/karate-sh) repo (expected at `../karate-sh`) contains the production `manifest.json`.
+
+```bash
+# 1. Build the binary
+cargo build
+
+# 2. Create a test directory and copy the binary
+mkdir -p /tmp/karate-update-test/serve /tmp/karate-update-test/bin
+cp target/debug/karate /tmp/karate-update-test/bin/karate
+
+# 3. Package it as a release archive and get the SHA256
+tar czf /tmp/karate-update-test/serve/karate-cli.tar.gz \
+  -C /tmp/karate-update-test/bin karate
+shasum -a 256 /tmp/karate-update-test/serve/karate-cli.tar.gz
+```
+
+4. Create `/tmp/karate-update-test/serve/manifest.json` using the SHA256 from above (replace `YOUR_SHA256` and adjust the platform key for your machine):
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "2026-01-01T00:00:00Z",
+  "artifacts": {
+    "karate-cli": {
+      "description": "Karate CLI",
+      "versions": {
+        "0.2.0-test": {
+          "channels": ["stable"],
+          "released_at": "2026-01-01T00:00:00Z",
+          "platforms": {
+            "macos-aarch64": {
+              "url": "http://localhost:9999/karate-cli.tar.gz",
+              "sha256": "YOUR_SHA256"
+            }
+          }
+        }
+      }
+    },
+    "karate": {
+      "description": "Karate Core",
+      "versions": {
+        "1.5.2": {
+          "channels": ["stable"],
+          "released_at": "2025-11-30T00:00:00Z",
+          "url": "https://example.com/karate-1.5.2.jar",
+          "sha256": "abc123"
+        }
+      }
+    }
+  },
+  "channel_defaults": {
+    "stable": { "karate-cli": "0.2.0-test", "karate": "1.5.2" }
+  }
+}
+```
+
+```bash
+# 5. Start a local HTTP server
+cd /tmp/karate-update-test/serve && python3 -m http.server 9999 &
+
+# 6. Test the full self-update flow (runs the copied binary, not cargo run)
+KARATE_MANIFEST_URL=http://localhost:9999/manifest.json \
+KARATE_HOME=./home/.karate \
+  /tmp/karate-update-test/bin/karate update --item cli
+
+# 7. Verify the binary still works after replacement
+/tmp/karate-update-test/bin/karate version
+
+# 8. Clean up
+kill $(lsof -ti:9999) 2>/dev/null
+rm -rf /tmp/karate-update-test
+```
+
+Note: The dev binary always reports `0.1.0` (from `Cargo.toml`), so it will always see `0.2.0-test` as an update. In production, the version is injected at release build time.
+
+You can also test just the check/display phase via `cargo run` (no binary replacement):
+
+```bash
+KARATE_MANIFEST_URL=http://localhost:9999/manifest.json \
+KARATE_HOME=./home/.karate cargo run -- update --item cli
+```
+
+## Related Repositories
+
+The [`karate-sh`](https://github.com/karatelabs/karate-sh) website repo is expected at `../karate-sh` relative to this project. It contains:
+- `public/manifest.json` - The production manifest used by `karate setup`, `karate update`, and install scripts
+- Install scripts (`install.sh`, `install.ps1`)
+
 ## Important Notes
 
 - **Never delete `~/.karate`** - Contains license files (`uuid.txt`, `karate.lic`)

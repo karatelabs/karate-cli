@@ -94,7 +94,6 @@ impl ReleasesManifest {
     }
 
     /// Get download info for a platform-specific artifact (like karate-cli binary)
-    #[allow(dead_code)]
     pub fn get_platform_download(
         &self,
         artifact_id: &str,
@@ -120,9 +119,10 @@ impl ReleasesManifest {
     }
 }
 
-/// Fetch manifest from karate.sh
+/// Fetch manifest from karate.sh (or KARATE_MANIFEST_URL override for testing)
 pub async fn fetch_manifest() -> Result<ReleasesManifest> {
-    fetch_manifest_from_url(MANIFEST_URL).await
+    let url = std::env::var("KARATE_MANIFEST_URL").unwrap_or_else(|_| MANIFEST_URL.to_string());
+    fetch_manifest_from_url(&url).await
 }
 
 /// Fetch manifest from a specific URL

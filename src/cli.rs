@@ -90,7 +90,7 @@ pub struct UpdateArgs {
     #[arg(long, conflicts_with = "item")]
     pub all: bool,
 
-    /// Update specific item: jar, jre
+    /// Update specific item: jar, jre, cli
     #[arg(long)]
     pub item: Option<String>,
 

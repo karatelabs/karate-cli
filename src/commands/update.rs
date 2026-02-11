@@ -1,20 +1,21 @@
 //! Update command - check for and install updates to Karate JAR and JRE.
 
 use crate::cli::UpdateArgs;
+use crate::commands::version::LAUNCHER_VERSION;
 use crate::config::load_merged_config;
-use crate::download::{download_file, extract_tar_gz, resolve_justj_jre};
+use crate::download::{download_file, extract_tar_gz, extract_zip, resolve_justj_jre};
 use crate::error::ExitCode;
 use crate::jre::MIN_JAVA_VERSION;
-use crate::manifest::fetch_manifest;
-use crate::platform::{KaratePaths, Platform};
-use anyhow::Result;
+use crate::manifest::{fetch_manifest, ReleasesManifest};
+use crate::platform::{KaratePaths, Os, Platform};
+use anyhow::{Context, Result};
 use console::style;
 use std::collections::HashSet;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
 /// Valid items for update
-const VALID_ITEMS: &[&str] = &["jar", "jre"];
+const VALID_ITEMS: &[&str] = &["jar", "jre", "cli"];
 
 /// Info about an installed component and its update status
 #[derive(Debug)]
@@ -56,16 +57,21 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
 
     let check_jar = items.contains("jar");
     let check_jre = items.contains("jre");
+    let check_cli = items.contains("cli");
+
+    // Clean up leftover .old binary from previous self-update (Windows)
+    cleanup_old_binary();
 
     let mut jar_status: Option<ComponentStatus> = None;
     let mut jre_status: Option<ComponentStatus> = None;
+    let mut cli_status: Option<ComponentStatus> = None;
 
     // Load config for channel preference (command line overrides config)
     let config = load_merged_config()?;
     let channel = args.channel.as_deref().unwrap_or(&config.channel);
 
-    // Fetch manifest once for JAR checks
-    let manifest = if check_jar {
+    // Fetch manifest once for JAR and CLI checks
+    let manifest = if check_jar || check_cli {
         Some(fetch_manifest().await?)
     } else {
         None
@@ -117,6 +123,26 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
 
         jre_status = Some(ComponentStatus {
             installed_version: installed,
+            latest_version: latest,
+            has_update,
+        });
+    }
+
+    // Check CLI status
+    if check_cli {
+        let installed = LAUNCHER_VERSION.to_string();
+        let latest = manifest
+            .as_ref()
+            .and_then(|m| m.get_latest_version("karate-cli", channel))
+            .map(|s| s.to_string())
+            .ok_or_else(|| {
+                anyhow::anyhow!("No '{}' karate-cli version found in manifest", channel)
+            })?;
+
+        let has_update = installed != latest;
+
+        cli_status = Some(ComponentStatus {
+            installed_version: Some(installed),
             latest_version: latest,
             has_update,
         });
@@ -179,6 +205,24 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
         }
     }
 
+    if let Some(ref status) = cli_status {
+        if status.has_update {
+            any_updates = true;
+            println!(
+                "  {} CLI: {} → {} available",
+                style("↑").cyan(),
+                status.installed_version.as_ref().unwrap(),
+                style(&status.latest_version).green()
+            );
+        } else {
+            println!(
+                "  {} CLI: {} (up to date)",
+                style("✓").green(),
+                status.installed_version.as_ref().unwrap()
+            );
+        }
+    }
+
     println!();
 
     if !any_updates {
@@ -208,7 +252,8 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
     // Perform updates
     let mut step = 0;
     let total_steps = jar_status.as_ref().map(|s| s.has_update as u8).unwrap_or(0)
-        + jre_status.as_ref().map(|s| s.has_update as u8).unwrap_or(0);
+        + jre_status.as_ref().map(|s| s.has_update as u8).unwrap_or(0)
+        + cli_status.as_ref().map(|s| s.has_update as u8).unwrap_or(0);
 
     // Update JAR
     if let Some(ref status) = jar_status {
@@ -233,6 +278,25 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
                 status.latest_version
             );
             update_jre(&platform, &paths).await?;
+        }
+    }
+
+    // Update CLI (last — if binary replacement disrupts process, JAR/JRE are already done)
+    if let Some(ref status) = cli_status {
+        if status.has_update {
+            step += 1;
+            println!(
+                "{} Updating CLI to {}...",
+                style(format!("[{}/{}]", step, total_steps)).bold().dim(),
+                status.latest_version
+            );
+            update_cli_binary(
+                &paths,
+                &platform,
+                &status.latest_version,
+                manifest.as_ref().unwrap(),
+            )
+            .await?;
         }
     }
 
@@ -327,6 +391,19 @@ async fn update_karate_jar(paths: &KaratePaths, channel: &str) -> Result<()> {
     Ok(())
 }
 
+/// Clean up leftover .old binary from a previous self-update (Windows compatibility).
+/// On Windows, a running binary cannot be deleted, so cleanup is deferred to next run.
+fn cleanup_old_binary() {
+    if let Ok(current_exe) = std::env::current_exe() {
+        if let Ok(canonical) = current_exe.canonicalize() {
+            let old_path = canonical.with_extension("old");
+            if old_path.exists() {
+                let _ = std::fs::remove_file(&old_path);
+            }
+        }
+    }
+}
+
 /// Download and update JRE
 async fn update_jre(platform: &Platform, paths: &KaratePaths) -> Result<()> {
     let platform_key = platform.manifest_key();
@@ -366,4 +443,136 @@ async fn update_jre(platform: &Platform, paths: &KaratePaths) -> Result<()> {
         jre_info.version_label
     );
     Ok(())
+}
+
+/// Download and replace the CLI binary with a new version
+async fn update_cli_binary(
+    paths: &KaratePaths,
+    platform: &Platform,
+    version: &str,
+    manifest: &ReleasesManifest,
+) -> Result<()> {
+    let artifact = manifest
+        .get_platform_download("karate-cli", version, platform)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "No CLI binary found for platform '{}' in version {}",
+                platform.manifest_key(),
+                version
+            )
+        })?;
+
+    let url = &artifact.url;
+    let sha256 = &artifact.sha256;
+
+    // Determine archive extension based on platform
+    let ext = if platform.os == Os::Windows {
+        "zip"
+    } else {
+        "tar.gz"
+    };
+    let archive_name = format!("karate-cli-{}.{}", version, ext);
+    let archive_path = paths.cache.join(&archive_name);
+
+    println!("  Downloading CLI {}...", version);
+    download_file(url, &archive_path, Some(sha256)).await?;
+
+    // Extract to temp directory
+    let extract_dir = paths.cache.join(format!("karate-cli-{}-extract", version));
+    if extract_dir.exists() {
+        std::fs::remove_dir_all(&extract_dir)?;
+    }
+
+    println!("  Extracting...");
+    if platform.os == Os::Windows {
+        extract_zip(&archive_path, &extract_dir)?;
+    } else {
+        extract_tar_gz(&archive_path, &extract_dir)?;
+    }
+
+    // Find the binary in extracted dir
+    let binary_name = if platform.os == Os::Windows {
+        "karate.exe"
+    } else {
+        "karate"
+    };
+    let new_binary = find_binary_in_dir(&extract_dir, binary_name)?;
+
+    // Get current executable path
+    let current_exe = std::env::current_exe()
+        .context("Failed to determine current executable path")?
+        .canonicalize()
+        .context("Failed to resolve current executable path")?;
+
+    let backup_path = current_exe.with_extension("old");
+
+    // Remove any existing backup
+    let _ = std::fs::remove_file(&backup_path);
+
+    // Rename current → .old
+    std::fs::rename(&current_exe, &backup_path).with_context(|| {
+        format!(
+            "Failed to back up current binary {} → {}",
+            current_exe.display(),
+            backup_path.display()
+        )
+    })?;
+
+    // Move new binary → current location (fall back to copy for cross-filesystem)
+    let result = std::fs::rename(&new_binary, &current_exe)
+        .or_else(|_| std::fs::copy(&new_binary, &current_exe).map(|_| ()));
+
+    if let Err(e) = result {
+        // Restore backup on failure
+        eprintln!("  {} Failed to place new binary: {}", style("!").red(), e);
+        let _ = std::fs::rename(&backup_path, &current_exe);
+        return Err(e.into());
+    }
+
+    // Set executable permissions on Unix
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&current_exe, std::fs::Permissions::from_mode(0o755))?;
+    }
+
+    // Cleanup
+    let _ = std::fs::remove_file(&archive_path);
+    let _ = std::fs::remove_dir_all(&extract_dir);
+    // On Unix we can remove the backup immediately; on Windows the running binary is locked
+    #[cfg(unix)]
+    {
+        let _ = std::fs::remove_file(&backup_path);
+    }
+
+    println!("  {} CLI updated to {}", style("✓").green(), version);
+    Ok(())
+}
+
+/// Find the karate binary in an extracted directory (top-level or one level deep)
+fn find_binary_in_dir(dir: &std::path::Path, binary_name: &str) -> Result<PathBuf> {
+    // Check top level
+    let top_level = dir.join(binary_name);
+    if top_level.exists() {
+        return Ok(top_level);
+    }
+
+    // Check one level deep
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.is_dir() {
+                let nested = path.join(binary_name);
+                if nested.exists() {
+                    return Ok(nested);
+                }
+            }
+        }
+    }
+
+    anyhow::bail!(
+        "Could not find '{}' in extracted archive at {}",
+        binary_name,
+        dir.display()
+    )
 }

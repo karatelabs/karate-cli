@@ -9,7 +9,7 @@ use console::style;
 use serde::Serialize;
 
 /// Launcher version (from Cargo.toml)
-const LAUNCHER_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const LAUNCHER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Serialize)]
 struct VersionInfo {

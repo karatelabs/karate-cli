@@ -108,9 +108,44 @@ The release workflow triggers automatically on tag push.
 
 ### After Release
 
-- Binaries appear at: `https://github.com/karatelabs/karate-cli/releases/tag/v0.2.0`
-- GitHub auto-generates release notes from commits
-- Edit release notes manually if needed
+1. **Verify the GitHub Release**
+   - Binaries appear at: `https://github.com/karatelabs/karate-cli/releases/tag/v0.2.0`
+   - GitHub auto-generates release notes from commits
+   - Edit release notes manually if needed
+
+2. **Update the manifest at karate.sh**
+
+   The CLI uses `https://karate.sh/manifest.json` to resolve downloads. After every release, update the manifest in the [`karate-sh`](https://github.com/karatelabs/karate-sh) repo:
+
+   ```bash
+   cd /path/to/karate-sh
+
+   # Download all .sha256 files from the release
+   gh release download v0.2.0 -R karatelabs/karate-cli -p '*.sha256'
+   ```
+
+   Then edit `public/manifest.json`:
+   - Add a new version entry under `artifacts.karate-cli.versions`
+   - Move `"stable"` from the old version's `channels` to the new one (old version gets `[]`)
+   - Update `channel_defaults.stable.karate-cli` to the new version
+   - Use the SHA256 values from the downloaded checksum files
+
+   ```bash
+   # Commit and push (Netlify auto-deploys)
+   git add public/manifest.json
+   git commit -m "add karate-cli v0.2.0 to manifest"
+   git push
+   ```
+
+3. **Test the install scripts**
+
+   ```bash
+   # macOS/Linux
+   curl -fsSL https://karate.sh | sh
+
+   # Windows PowerShell
+   irm https://karate.sh/install.ps1 | iex
+   ```
 
 ### Deleting a Tag (if needed)
 
@@ -126,18 +161,6 @@ git tag -d v0.2.0 && git push origin --delete v0.2.0
 ```
 
 Note: Deleting a tag does NOT delete the GitHub Release. Delete the release manually from the GitHub UI if needed.
-
-## Testing the Install Scripts
-
-After a release, test the installers:
-
-```bash
-# macOS/Linux
-curl -fsSL https://karate.sh | sh
-
-# Windows PowerShell
-irm https://karate.sh/install.ps1 | iex
-```
 
 ## Important Notes
 

@@ -45,7 +45,7 @@ async fn run() -> ExitCode {
         Command::Version(args) => commands::version::run(args).await,
 
         // JAR-delegated commands
-        Command::External(args) => delegate::run(args).await,
+        Command::External(args) => delegate::run(args, &cli.extra_classpath).await,
     };
 
     match result {

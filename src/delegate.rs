@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Run a delegated command through the JVM.
-pub async fn run(args: Vec<String>) -> Result<ExitCode> {
+pub async fn run(args: Vec<String>, extra_classpath: &[String]) -> Result<ExitCode> {
     let paths = KaratePaths::new();
     let config = load_merged_config()?;
 
@@ -30,7 +30,7 @@ pub async fn run(args: Vec<String>) -> Result<ExitCode> {
     let jar_path = find_karate_jar(&dist_dir)?;
 
     // Build classpath
-    let classpath = build_classpath(&paths, &jar_path)?;
+    let classpath = build_classpath(&paths, &jar_path, extra_classpath)?;
 
     // Build JVM command
     let mut cmd = Command::new(&java_executable);
@@ -112,7 +112,12 @@ fn find_karate_jar(dist_dir: &Path) -> Result<PathBuf> {
 }
 
 /// Build the classpath string.
-fn build_classpath(paths: &KaratePaths, jar_path: &Path) -> Result<String> {
+/// Order: karate jar → ext jars (global + local) → extra classpath (--cp flags)
+fn build_classpath(
+    paths: &KaratePaths,
+    jar_path: &Path,
+    extra_classpath: &[String],
+) -> Result<String> {
     let mut classpath_parts = vec![jar_path.to_string_lossy().to_string()];
 
     // Add extensions from both global and local ext directories
@@ -126,6 +131,11 @@ fn build_classpath(paths: &KaratePaths, jar_path: &Path) -> Result<String> {
                 }
             }
         }
+    }
+
+    // Add extra classpath entries from --cp flags
+    for entry in extra_classpath {
+        classpath_parts.push(entry.clone());
     }
 
     // Join with platform-appropriate separator

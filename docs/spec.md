@@ -167,14 +167,26 @@ Everything else passes through to the JVM:
   * Delegated to Karate JAR
   * Launcher constructs JVM command:
     * JRE path
-    * Classpath (fatjar + plugins + ext/*.jar)
+    * Classpath (fatjar + ext/*.jar + --cp entries)
     * JVM opts from config
 
-### **E. Extensions Support**
+### **E. Extensions & Classpath**
 
 * **User extensions:** `~/.karate/ext/` — manually dropped JARs, always added to classpath
+* **`--cp` flag:** Additional classpath entries appended after ext JARs. Can be specified multiple times. Useful for IDE integrations and proprietary JARs.
 * For v1, extensions are managed manually by dropping JAR files into the `ext/` folder
 * Future versions may add managed plugin installation via manifest
+
+**Classpath order:** karate fatjar → `~/.karate/ext/*.jar` → `.karate/ext/*.jar` → `--cp` entries
+
+**Example:**
+```bash
+# Add a proprietary debug adapter JAR
+karate --cp /path/to/karate-ide-v2.jar run features/
+
+# Multiple extra JARs
+karate --cp /path/to/a.jar --cp /path/to/b.jar run features/
+```
 
 ### **F. Config Management**
 
@@ -240,7 +252,11 @@ Everything else passes through to the JVM:
 ## **5.1 Command Overview**
 
 ```text
-karate <command> [options]
+karate [global-options] <command> [options]
+
+Global Options:
+  --no-color             Disable colored output
+  --cp <path>            Additional classpath entry (repeatable)
 
 Management Commands (Rust-native):
   setup [subcommand]     First-run wizard or targeted setup

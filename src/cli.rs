@@ -12,6 +12,11 @@ pub struct Cli {
     #[arg(long, global = true, env = "NO_COLOR")]
     pub no_color: bool,
 
+    /// Additional classpath entries (JAR files or directories) appended to the JVM classpath.
+    /// Can be specified multiple times. Only applies to JAR-delegated commands.
+    #[arg(long = "cp", global = true, num_args = 1)]
+    pub extra_classpath: Vec<String>,
+
     #[command(subcommand)]
     pub command: Command,
 }

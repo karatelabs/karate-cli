@@ -40,7 +40,7 @@ pub async fn run(args: SetupArgs) -> Result<ExitCode> {
     };
 
     // Non-interactive install of specified items
-    run_setup_items(&items, args.force, args.java_version, args.channel).await
+    run_setup_items(&items, args.force, args.java_version, args.karate_version, args.channel).await
 }
 
 /// Non-interactive setup of specified items.
@@ -48,6 +48,7 @@ async fn run_setup_items(
     items: &HashSet<String>,
     force: bool,
     java_version: Option<String>,
+    version_override: Option<String>,
     channel_override: Option<String>,
 ) -> Result<ExitCode> {
     let platform = Platform::detect()?;
@@ -129,14 +130,27 @@ async fn run_setup_items(
             style(format!("[{}/{}]", step, total_steps)).bold().dim()
         );
 
-        let existing_jar = find_karate_jar(&paths.dist);
-        if existing_jar.is_some() && !force {
-            println!("  {} Karate JAR already installed", style("✓").green());
-        } else {
-            if force && existing_jar.is_some() {
-                println!("  {} Force mode: re-downloading JAR", style("!").yellow());
+        // If a specific version is requested, check for that version; otherwise check for any JAR
+        let should_download = if let Some(ref ver) = version_override {
+            let target_jar = paths.dist.join(format!("karate-{}.jar", ver));
+            if target_jar.exists() && !force {
+                println!("  {} Karate {} already installed", style("✓").green(), ver);
+                false
+            } else {
+                true
             }
-            download_karate_jar(&paths, channel_override.as_deref()).await?;
+        } else {
+            let existing_jar = find_karate_jar(&paths.dist);
+            if existing_jar.is_some() && !force {
+                println!("  {} Karate JAR already installed", style("✓").green());
+                false
+            } else {
+                if force { println!("  {} Force mode: re-downloading JAR", style("!").yellow()); }
+                true
+            }
+        };
+        if should_download {
+            download_karate_jar(&paths, version_override.as_deref(), channel_override.as_deref()).await?;
         }
         println!();
     }
@@ -208,7 +222,7 @@ async fn run_setup_wizard() -> Result<ExitCode> {
     if existing_jar.is_some() {
         println!("  {} Karate JAR already installed", style("✓").green());
     } else {
-        download_karate_jar(&paths, None).await?;
+        download_karate_jar(&paths, None, None).await?;
     }
 
     println!();
@@ -257,7 +271,7 @@ async fn download_jre(platform: &Platform, paths: &KaratePaths, java_version: u8
 }
 
 /// Download Karate JAR using manifest from karate.sh
-async fn download_karate_jar(paths: &KaratePaths, channel_override: Option<&str>) -> Result<()> {
+async fn download_karate_jar(paths: &KaratePaths, version_override: Option<&str>, channel_override: Option<&str>) -> Result<()> {
     // Load config to get channel and version preferences
     let config = load_merged_config()?;
     let channel = channel_override.unwrap_or(&config.channel);
@@ -273,9 +287,12 @@ async fn download_karate_jar(paths: &KaratePaths, channel_override: Option<&str>
         )
     })?;
 
-    // Determine version: use config if pinned, otherwise get latest from channel
-    let version = if config.karate_version != "latest" {
-        // User pinned a specific version
+    // Determine version: CLI flag → config pin → latest from channel
+    let version = if let Some(v) = version_override {
+        println!("  Requested version: {}", style(v).cyan());
+        v.to_string()
+    } else if config.karate_version != "latest" {
+        // User pinned a specific version in config
         println!(
             "  Using pinned version: {}",
             style(&config.karate_version).cyan()

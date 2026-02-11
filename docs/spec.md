@@ -191,7 +191,7 @@ karate --cp /path/to/a.jar --cp /path/to/b.jar run features/
 ### **F. Config Management**
 
 * Global: `~/.karate/karate-cli.json`
-* Project: `./.karate/karate.json`
+* Project: `./.karate/karate-cli.json`
 * CLI precedence: command flag → project config → global config → defaults
 
 * `karate config`:
@@ -282,7 +282,7 @@ Runtime Commands (JAR-delegated):
 ### **setup**
 
 ```
-karate setup [--all] [--item <name>] [--force] [--java-version <ver>]
+karate setup [--all] [--item <name>] [--force] [--karate-version <ver>] [--java-version <ver>]
 ```
 
 Interactive first-run wizard. Downloads JRE and Karate JAR, offers PATH setup.
@@ -291,15 +291,17 @@ Interactive first-run wizard. Downloads JRE and Karate JAR, offers PATH setup.
 * `--all` — Install all components (JAR + JRE) non-interactively
 * `--item <name>` — Install specific item: jar, jre
 * `--force` — Force download even if components already installed
+* `--karate-version <ver>` — Specific Karate JAR version to install (e.g., 1.5.2, 2.0.0)
 * `--java-version <ver>` — Specific Java major version (default: 21)
 
 **Examples:**
 ```
-karate setup                    # Interactive wizard
-karate setup --all              # Install everything non-interactively
-karate setup --item jar         # JAR only (use system JRE)
-karate setup --item jre         # JRE only
-karate setup --item jar --force # Force re-download JAR
+karate setup                                        # Interactive wizard
+karate setup --all                                  # Install everything non-interactively
+karate setup --item jar                             # JAR only (use system JRE)
+karate setup --item jre                             # JRE only
+karate setup --item jar --force                     # Force re-download JAR
+karate setup --item jar --karate-version 2.0.0      # Install specific Karate version
 ```
 
 ---
@@ -328,7 +330,7 @@ Manage configuration files.
 
 **Flags:**
 * `--global` — Edit `~/.karate/karate-cli.json`
-* `--local` — Edit `./.karate/karate.json` (creates if needed)
+* `--local` — Edit `./.karate/karate-cli.json` (creates if needed)
 * `--show` — Print resolved (merged) config as JSON
 
 ---
@@ -461,16 +463,16 @@ This allows:
 ```
 my-project/
 └── .karate/
-    └── karate.json               # Project-specific config overrides
+    └── karate-cli.json            # Project-specific config overrides
 ```
 
-Note: A `.karate` folder with only `karate.json` is treated as config-only, not a karate home.
+Note: A `.karate` folder with only `karate-cli.json` is treated as config-only, not a karate home.
 
 ---
 
 ## **7.4 Configuration Schema**
 
-### **karate-cli.json (Global) / karate.json (Project)**
+### **karate-cli.json (Global and Project)**
 
 ```json
 {

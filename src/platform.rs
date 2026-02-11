@@ -208,12 +208,12 @@ impl KaratePaths {
         global.join(subdir)
     }
 
-    /// Get the project-local config path (.karate/karate.json in cwd).
+    /// Get the project-local config path (.karate/karate-cli.json in cwd).
     pub fn local_config() -> PathBuf {
         std::env::current_dir()
             .expect("Could not determine current directory")
             .join(".karate")
-            .join("karate.json")
+            .join("karate-cli.json")
     }
 
     /// Ensure all directories exist (creates in resolved locations).

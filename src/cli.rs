@@ -71,6 +71,10 @@ pub struct SetupArgs {
     #[arg(long = "java-version")]
     pub java_version: Option<String>,
 
+    /// Karate JAR version to install (e.g., 1.5.2, 2.0.0)
+    #[arg(long = "karate-version")]
+    pub karate_version: Option<String>,
+
     /// Release channel: stable or beta (overrides config)
     #[arg(long)]
     pub channel: Option<String>,

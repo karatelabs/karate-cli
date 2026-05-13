@@ -213,6 +213,7 @@
 1. **JRE extraction assumes tar.gz** - Windows may need .zip support
 2. **No retry logic for downloads** - Single attempt, fails on network issues
 3. **Config file not created by default** - User must create manually or use --show
+4. **TODO: consider switching JRE source from Eclipse JustJ to Adoptium Temurin API.** `download.eclipse.org/justj/...` has stalled for 30+ minutes during recent downloads (May 2026). Adoptium ships the same Eclipse OpenJDK build behind a much faster CDN-backed mirror (GitHub Releases via api.adoptium.net), 30-60s vs unresponsive. URL pattern: `https://api.adoptium.net/v3/binary/latest/<jdk-version>/ga/<os>/<arch>/jre/hotspot/normal/eclipse?project=jdk`. Trade-off: loses JustJ's "minimal" / "full.stripped" size variants — Adoptium ships full JRE only (~50MB compressed vs ~30MB for the stripped JustJ). For a CLI bootstrap that runs once-per-machine that size delta is likely acceptable; revisit if it matters. Implementation pattern: use `curl -fSL --retry 5 --connect-timeout 30 --max-time 600` and download-to-file-then-extract (not piped) so transport errors surface as build failures rather than corrupted tarballs.
 
 ---
 

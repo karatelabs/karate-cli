@@ -1,7 +1,26 @@
 name: Test Installer
 
+# Fresh-slate verification of the LIVE install chain: karate.sh installer -> manifest resolution ->
+# released binary -> engine setup -> a real test run. This exercises released artifacts + the live
+# manifest (NOT the repo's source), so it runs manually (optionally pinned to a just-released
+# version, BEFORE moving the stable channel) and on a weekly schedule to catch bit-rot — silence
+# is how the glibc-floor regression (#5) went unnoticed.
+#
+# Edge cases baked in from the field (issues #4, #5 + the NO_COLOR report):
+#   - glibc floor: a debian bookworm (glibc 2.36) container job — the linux binaries are static
+#     musl builds precisely so this passes; a gnu build would fail here
+#   - NO_COLOR=1 in the environment (agents/CIs export it) must not break arg parsing
+#   - a config-pinned karate_version must win over a newer downloaded jar (run + setup lanes)
+
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'CLI version to install (empty = latest from the stable channel)'
+        required: false
+        default: ''
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
 
 jobs:
   test-unix:
@@ -14,8 +33,12 @@ jobs:
     steps:
       - name: Install Karate CLI
         run: |
-          curl -fsSL https://karate.sh/install.sh | sh -s -- --bin-dir $HOME/.local/bin
+          V="${{ github.event.inputs.version }}"
+          curl -fsSL https://karate.sh/install.sh | sh -s -- --bin-dir $HOME/.local/bin ${V:+--version $V}
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: NO_COLOR must not break arg parsing
+        run: NO_COLOR=1 karate version
 
       - name: Setup Karate (JRE + JAR)
         run: karate setup --all --force
@@ -29,7 +52,53 @@ jobs:
         run: curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/test/smoke.feature -o smoke.feature
 
       - name: Run smoke test
+        run: NO_COLOR=1 karate smoke.feature
+
+  # The portability floor: debian bookworm = glibc 2.36 (same as the official node images; RHEL 9
+  # is even lower). The released linux binaries are static musl, so this must pass; it is the job
+  # that would have caught #5. Also carries the pinned-version scenario from #4.
+  test-glibc-floor:
+    name: Test Installer (debian bookworm, glibc floor + pinned version)
+    runs-on: ubuntu-latest
+    container: debian:bookworm-slim
+    steps:
+      - name: Install prerequisites
+        run: apt-get update -qq && apt-get install -y -qq curl ca-certificates unzip
+
+      - name: Install Karate CLI
+        run: |
+          V="${{ github.event.inputs.version }}"
+          curl -fsSL https://karate.sh/install.sh | sh -s -- --bin-dir /usr/local/bin ${V:+--version $V}
+
+      - name: Binary runs on old glibc + NO_COLOR clean
+        run: |
+          karate version
+          NO_COLOR=1 karate version
+
+      - name: Setup Karate (JRE + JAR)
+        run: karate setup --all --force
+
+      - name: Fetch smoke test
+        run: curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/test/smoke.feature -o smoke.feature
+
+      - name: Run smoke test
         run: karate smoke.feature
+
+      - name: Pinned version wins over a newer downloaded jar (#4)
+        run: |
+          # pin 1.5.2 in the global config, install it, and plant a fake "newer" jar beside it
+          echo '{ "karate_version": "1.5.2" }' > $HOME/.karate/karate-cli.json
+          karate setup --item jar   # must download the PINNED jar despite another jar existing
+          test -f $HOME/.karate/dist/karate-1.5.2.jar
+          echo fake > $HOME/.karate/dist/karate-9.9.9.jar
+          karate smoke.feature | tee pinned-run.log
+          grep -q "Karate version: 1.5.2" pinned-run.log
+
+      - name: Missing pinned jar fails with the actionable setup hint (#4)
+        run: |
+          rm $HOME/.karate/dist/karate-1.5.2.jar
+          if karate smoke.feature 2>err.log; then echo "expected failure" && exit 1; fi
+          grep -q "karate setup --item jar --karate-version 1.5.2" err.log
 
   test-windows:
     name: Test Installer (windows-latest)
@@ -40,8 +109,16 @@ jobs:
         run: |
           $InstallDir = "$env:LOCALAPPDATA\Programs\Karate"
           Invoke-RestMethod -Uri "https://karate.sh/install.ps1" -OutFile install.ps1
-          .\install.ps1 -InstallDir $InstallDir
+          $V = "${{ github.event.inputs.version }}"
+          if ($V) { .\install.ps1 -InstallDir $InstallDir -Version $V } else { .\install.ps1 -InstallDir $InstallDir }
           echo "$InstallDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: NO_COLOR must not break arg parsing
+        shell: pwsh
+        run: |
+          $env:NO_COLOR = "1"
+          karate version
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Setup Karate (JRE + JAR)
         run: karate setup --all --force

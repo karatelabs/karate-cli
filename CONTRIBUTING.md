@@ -137,7 +137,14 @@ The release workflow triggers automatically on tag push.
    git push
    ```
 
-3. **Fresh-slate verification (docker) — REQUIRED before announcing**
+3. **Fresh-slate verification — REQUIRED before announcing**
+
+   The **Test Installer** workflow (Actions → Test Installer → Run workflow) runs the whole chain on
+   ubuntu / both macs / windows / a debian-bookworm glibc-floor container, including the NO_COLOR and
+   pinned-version regression cases. Because the installer resolves via the karate.sh manifest, the
+   safe order is: add the new version to `manifest.json` **without** moving the `stable` channel →
+   run Test Installer with the `version` input → green → move `stable`. It also runs weekly against
+   live stable to catch bit-rot. The docker one-liner below is the local equivalent (glibc-floor pass):
 
    Verify the whole customer chain — installer → manifest resolution → binary runs → engine setup →
    a real test run — from a machine that has nothing. Docker gives you that in one command. Run it

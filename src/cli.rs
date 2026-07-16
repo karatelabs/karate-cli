@@ -111,7 +111,7 @@ pub struct ConfigArgs {
     #[arg(long, conflicts_with = "local")]
     pub global: bool,
 
-    /// Edit project config (./.karate/karate.json)
+    /// Edit project config (./.karate/karate-cli.json)
     #[arg(long, conflicts_with = "global")]
     pub local: bool,
 

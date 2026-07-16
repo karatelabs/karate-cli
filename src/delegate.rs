@@ -27,7 +27,7 @@ pub async fn run(args: Vec<String>, extra_classpath: &[String]) -> Result<ExitCo
         .map(PathBuf::from)
         .unwrap_or_else(|| paths.dist.clone());
 
-    let jar_path = find_karate_jar(&dist_dir)?;
+    let jar_path = find_karate_jar(&dist_dir, &config.karate_version)?;
 
     // Build classpath
     let classpath = build_classpath(&paths, &jar_path, extra_classpath)?;
@@ -84,9 +84,24 @@ fn find_java_in_dir(jre_dir: &Path) -> Result<PathBuf> {
 }
 
 /// Find the Karate JAR to use.
-fn find_karate_jar(dist_dir: &Path) -> Result<PathBuf> {
+fn find_karate_jar(dist_dir: &Path, karate_version: &str) -> Result<PathBuf> {
     if !dist_dir.exists() {
         return Err(KarateError::NotBootstrapped.into());
+    }
+
+    // A pinned karate_version (anything but "latest") selects exactly that jar — newer
+    // downloads sitting beside it must not win. Missing pinned jar = a hard, actionable
+    // error rather than a silent fallback to some other version.
+    if karate_version != "latest" {
+        let pinned = dist_dir.join(format!("karate-{karate_version}.jar"));
+        if pinned.exists() {
+            return Ok(pinned);
+        }
+        anyhow::bail!(
+            "karate_version is pinned to {karate_version} in config, but {} does not exist.\n\
+             Install it with: karate setup --item jar --karate-version {karate_version}",
+            pinned.display()
+        );
     }
 
     // Find any karate-*.jar in dist (excluding robot JARs)
@@ -141,4 +156,48 @@ fn build_classpath(
     // Join with platform-appropriate separator
     let separator = if cfg!(windows) { ";" } else { ":" };
     Ok(classpath_parts.join(separator))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dist_with(jars: &[&str]) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        for j in jars {
+            std::fs::write(dir.path().join(j), b"jar").unwrap();
+        }
+        dir
+    }
+
+    #[test]
+    fn latest_picks_newest_jar() {
+        let dist = dist_with(&["karate-1.5.2.jar", "karate-2.1.1.jar"]);
+        let jar = find_karate_jar(dist.path(), "latest").unwrap();
+        assert_eq!(jar.file_name().unwrap(), "karate-2.1.1.jar");
+    }
+
+    #[test]
+    fn pinned_version_wins_over_newer_download() {
+        let dist = dist_with(&["karate-1.5.2.jar", "karate-2.1.1.jar"]);
+        let jar = find_karate_jar(dist.path(), "1.5.2").unwrap();
+        assert_eq!(jar.file_name().unwrap(), "karate-1.5.2.jar");
+    }
+
+    #[test]
+    fn missing_pinned_jar_is_an_actionable_error() {
+        let dist = dist_with(&["karate-2.1.1.jar"]);
+        let err = find_karate_jar(dist.path(), "1.5.2")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("pinned to 1.5.2"), "{err}");
+        assert!(err.contains("--karate-version 1.5.2"), "{err}");
+    }
+
+    #[test]
+    fn robot_jars_are_ignored_for_latest() {
+        let dist = dist_with(&["karate-1.5.2.jar", "karate-robot-9.9.9.jar"]);
+        let jar = find_karate_jar(dist.path(), "latest").unwrap();
+        assert_eq!(jar.file_name().unwrap(), "karate-1.5.2.jar");
+    }
 }

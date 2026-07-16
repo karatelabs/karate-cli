@@ -137,8 +137,16 @@ async fn run_setup_items(
             style(format!("[{}/{}]", step, total_steps)).bold().dim()
         );
 
-        // If a specific version is requested, check for that version; otherwise check for any JAR
-        let should_download = if let Some(ref ver) = version_override {
+        // If a specific version is requested — by flag OR pinned in config — check for that
+        // exact version; otherwise check for any JAR. Without the config-pin half, a pinned
+        // setup would see "some jar exists" and skip downloading the pinned one.
+        let pinned_version = version_override.clone().or_else(|| {
+            load_merged_config()
+                .ok()
+                .map(|c| c.karate_version)
+                .filter(|v| v != "latest")
+        });
+        let should_download = if let Some(ref ver) = pinned_version {
             let target_jar = paths.dist.join(format!("karate-{}.jar", ver));
             if target_jar.exists() && !force {
                 println!("  {} Karate {} already installed", style("✓").green(), ver);

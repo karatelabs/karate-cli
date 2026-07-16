@@ -29,7 +29,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, macos-13]
+        # macos-15-intel = the x64 mac (macos-13 was retired by GitHub in Dec 2025; intel label lives until Aug 2027)
+        os: [ubuntu-latest, macos-latest, macos-15-intel]
     steps:
       - name: Install Karate CLI
         run: |

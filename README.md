@@ -46,11 +46,14 @@ karate doctor
 | `karate setup --all` | Non-interactive setup (JAR + JRE) |
 | `karate setup --item jar` | Install JAR only (use system JRE) |
 | `karate setup --item jre` | Install JRE only |
-| `karate update` | Check for and install updates |
-| `karate update --all` | Update all components non-interactively |
+| `karate update` | Check for and install updates to LATEST version |
+| `karate update --all` | Update all components non-interactively to LATEST version |
 | `karate doctor` | System diagnostics |
 | `karate doctor --json` | JSON output (for CI/scripts) |
 | `karate version` | Show version info |
+
+The setup command will install the pinned version from the configuration file or LATEST if not specified.
+The setup command has an additional option `--force` to force a re-download of JAR and / or JRE.
 
 To update the CLI itself, re-run the install command.
 
@@ -58,6 +61,7 @@ All other commands pass through to Karate:
 
 ```bash
 karate test.feature           # Run tests
+karate ./tests                # Run all tests in directory
 karate -t @smoke test.feature # Run with tags
 karate mock server.js         # Start mock server
 ```
@@ -65,7 +69,7 @@ karate mock server.js         # Start mock server
 ## Configuration
 
 Global config: `~/.karate/karate-cli.json`
-Project config: `.karate/karate.json`
+Project config: `.karate/karate-cli.json`
 
 ```json
 {

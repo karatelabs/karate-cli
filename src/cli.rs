@@ -8,8 +8,10 @@ use clap::{Args, Parser, Subcommand};
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
-    /// Disable colored output
-    #[arg(long, global = true, env = "NO_COLOR")]
+    /// Disable colored output (also honors the NO_COLOR env var — any non-empty value,
+    /// per https://no-color.org/; clap's env binding would reject NO_COLOR=1, so the
+    /// env check is manual in main.rs)
+    #[arg(long, global = true)]
     pub no_color: bool,
 
     /// Additional classpath entries (JAR files or directories) appended to the JVM classpath.

@@ -29,8 +29,10 @@ async fn main() {
 async fn run() -> ExitCode {
     let cli = Cli::parse();
 
-    // Handle --no-color globally
-    if cli.no_color {
+    // Handle --no-color globally. NO_COLOR follows https://no-color.org/: any non-empty
+    // value disables color (agents/CIs commonly export NO_COLOR=1).
+    let no_color_env = std::env::var("NO_COLOR").is_ok_and(|v| !v.is_empty());
+    if cli.no_color || no_color_env {
         console::set_colors_enabled(false);
     }
 

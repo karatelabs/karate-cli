@@ -137,15 +137,43 @@ The release workflow triggers automatically on tag push.
    git push
    ```
 
-3. **Test the install scripts**
+3. **Fresh-slate verification (docker) — REQUIRED before announcing**
+
+   Verify the whole customer chain — installer → manifest resolution → binary runs → engine setup →
+   a real test run — from a machine that has nothing. Docker gives you that in one command. Run it
+   TWICE: once on an old-glibc distro (the portability floor) and once on a current one.
+
+   ```bash
+   # The portability floor: debian bookworm (glibc 2.36). The linux binaries are static musl
+   # builds precisely so this works — a gnu build on ubuntu-latest runners would require the
+   # runner's glibc (24.04 = 2.39) and lock out Debian 12 / Ubuntu 22.04 / RHEL 9.
+   docker run --rm debian:bookworm-slim bash -c '
+     apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null
+     curl -fsSL https://karate.sh/install.sh | sh
+     export PATH="$HOME/.local/bin:$PATH"
+     karate version                          # binary runs on old glibc
+     NO_COLOR=1 karate version               # env-var regression check (agents/CIs export this)
+     karate setup --all                      # manifest -> JRE + engine download (non-interactive)
+     karate doctor
+     mkdir -p /t && printf "Feature: smoke\nScenario: math\n* assert 1 + 1 == 2\n" > /t/smoke.feature
+     cd /t && karate run smoke.feature       # end-to-end: a real run off the fresh install
+   '
+   # Repeat with ubuntu:24.04 (or the current LTS) for the modern-distro pass.
+   ```
+
+   Expected: every step exits 0; `doctor` shows JRE + JAR OK; the smoke run prints the HTML report
+   path. On macOS/Windows, the one-liners are:
 
    ```bash
    # macOS/Linux
-   curl -fsSL https://karate.sh | sh
+   curl -fsSL https://karate.sh/install.sh | sh
 
    # Windows PowerShell
    irm https://karate.sh/install.ps1 | iex
    ```
+
+   > Note the URL is `karate.sh/install.sh` — piping the bare `https://karate.sh` root serves the
+   > HTML landing page, not the script.
 
 ### Deleting a Tag (if needed)
 

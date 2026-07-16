@@ -69,8 +69,8 @@ Builds binaries for 5 platforms:
 |--------|----------|
 | `aarch64-apple-darwin` | `karate-darwin-arm64.tar.gz` |
 | `x86_64-apple-darwin` | `karate-darwin-x64.tar.gz` |
-| `x86_64-unknown-linux-gnu` | `karate-linux-x64.tar.gz` |
-| `aarch64-unknown-linux-gnu` | `karate-linux-arm64.tar.gz` |
+| `x86_64-unknown-linux-musl` | `karate-linux-x64.tar.gz` (static) |
+| `aarch64-unknown-linux-musl` | `karate-linux-arm64.tar.gz` (static) |
 | `x86_64-pc-windows-msvc` | `karate-windows-x64.zip` |
 
 Each artifact includes a `.sha256` checksum file.

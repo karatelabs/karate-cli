@@ -129,7 +129,7 @@ jobs:
           if (Select-String -Path $Exe -Pattern 'VCRUNTIME140' -SimpleMatch -Quiet) {
             throw 'karate.exe imports VCRUNTIME140.dll, which a clean Windows does not have'
           }
-          docker run --rm -v "$env:LOCALAPPDATA\Programs\Karate:C:\karate" mcr.microsoft.com/windows/nanoserver:ltsc2025 C:\karate\karate.exe version
+          docker run --rm --user ContainerAdministrator -v "$env:LOCALAPPDATA\Programs\Karate:C:\karate" mcr.microsoft.com/windows/nanoserver:ltsc2025 C:\karate\karate.exe version
           if ($LASTEXITCODE -ne 0) { throw "karate.exe failed in nanoserver (exit $LASTEXITCODE)" }
 
       - name: Setup Karate (JRE + JAR)

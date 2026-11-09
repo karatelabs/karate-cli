@@ -97,6 +97,14 @@ jobs:
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
 
+      - name: Check the binary needs no Visual C++ runtime
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (Select-String -Path target/${{ matrix.target }}/release/karate.exe -Pattern 'VCRUNTIME140' -SimpleMatch -Quiet) {
+            throw 'karate.exe imports VCRUNTIME140.dll, which a clean Windows does not have'
+          }
+
       - name: Prepare artifact (Unix)
         if: runner.os != 'Windows'
         run: |

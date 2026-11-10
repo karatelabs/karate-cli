@@ -48,7 +48,7 @@ impl ExitCode {
 #[derive(Error, Debug)]
 #[allow(dead_code)]
 pub enum KarateError {
-    #[error("Karate is not set up. Run 'karate setup' first.")]
+    #[error("Karate is not set up. Run 'karate setup --all' first.")]
     NotBootstrapped,
 
     #[error("Configuration error: {0}")]
@@ -88,13 +88,65 @@ pub enum KarateError {
 
 impl KarateError {
     /// Get the appropriate exit code for this error.
-    #[allow(dead_code)]
     pub fn exit_code(&self) -> ExitCode {
         match self {
             KarateError::NotBootstrapped | KarateError::Config(_) => ExitCode::ConfigError,
-            KarateError::Network(_) | KarateError::DownloadFailed(_) => ExitCode::NetworkError,
+            KarateError::Network(_)
+            | KarateError::DownloadFailed(_)
+            | KarateError::ChecksumMismatch { .. } => ExitCode::NetworkError,
             KarateError::Jre(_) => ExitCode::JreError,
             _ => ExitCode::GeneralError,
         }
+    }
+}
+
+/// The exit code for an error: the first `KarateError` in its chain decides, and a failed
+/// HTTP request is a network error.
+pub fn exit_code_for(err: &anyhow::Error) -> ExitCode {
+    for cause in err.chain() {
+        if let Some(e) = cause.downcast_ref::<KarateError>() {
+            return e.exit_code();
+        }
+        if cause.downcast_ref::<reqwest::Error>().is_some() {
+            return ExitCode::NetworkError;
+        }
+    }
+    ExitCode::GeneralError
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn not_bootstrapped_names_the_non_interactive_fix() {
+        let msg = KarateError::NotBootstrapped.to_string();
+        assert!(msg.contains("'karate setup --all'"), "{msg}");
+    }
+
+    #[test]
+    fn exit_codes_follow_the_spec_through_context() {
+        use anyhow::Context;
+        let not_set_up: anyhow::Result<()> = Err(KarateError::NotBootstrapped.into());
+        let not_set_up = not_set_up.context("run failed").unwrap_err();
+        assert_eq!(exit_code_for(&not_set_up), ExitCode::ConfigError);
+
+        let checksum = anyhow::Error::from(KarateError::ChecksumMismatch {
+            file: "f".into(),
+            expected: "a".into(),
+            actual: "b".into(),
+        });
+        assert_eq!(exit_code_for(&checksum), ExitCode::NetworkError);
+        assert_eq!(
+            exit_code_for(&anyhow::anyhow!("anything else")),
+            ExitCode::GeneralError
+        );
+    }
+
+    #[tokio::test]
+    async fn a_failed_request_is_a_network_error() {
+        let err = reqwest::get("http://127.0.0.1:9/").await.unwrap_err();
+        let err = anyhow::Error::from(err).context("Failed to start download");
+        assert_eq!(exit_code_for(&err), ExitCode::NetworkError);
     }
 }

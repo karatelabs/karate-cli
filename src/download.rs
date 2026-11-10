@@ -1,5 +1,6 @@
 //! File downloading with progress and checksum verification.
 
+use crate::error::KarateError;
 use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::Deserialize;
@@ -158,7 +159,11 @@ pub async fn download_file(url: &str, dest: &Path, expected_sha256: Option<&str>
         .with_context(|| format!("Failed to start download from {}", url))?;
 
     if !response.status().is_success() {
-        anyhow::bail!("Download failed: HTTP {}", response.status().as_u16());
+        return Err(KarateError::DownloadFailed(format!(
+            "HTTP {} from {url}",
+            response.status().as_u16()
+        ))
+        .into());
     }
 
     let total_size = response.content_length();
@@ -188,9 +193,24 @@ pub async fn download_file(url: &str, dest: &Path, expected_sha256: Option<&str>
         std::fs::create_dir_all(parent)?;
     }
 
-    // Download to a temp file first
+    // Download to a temp file beside dest, so the final rename is atomic and `dest` is
+    // only ever replaced by a complete, verified file.
     let temp_path = dest.with_extension("tmp");
-    let mut file = tokio::fs::File::create(&temp_path)
+    let result = write_verified(response, &temp_path, dest, expected_sha256, &pb).await;
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp_path);
+    }
+    result
+}
+
+async fn write_verified(
+    response: reqwest::Response,
+    temp_path: &Path,
+    dest: &Path,
+    expected_sha256: Option<&str>,
+    pb: &ProgressBar,
+) -> Result<()> {
+    let mut file = tokio::fs::File::create(temp_path)
         .await
         .with_context(|| format!("Failed to create file {}", temp_path.display()))?;
 
@@ -210,23 +230,19 @@ pub async fn download_file(url: &str, dest: &Path, expected_sha256: Option<&str>
 
     pb.finish_with_message("Download complete");
 
-    // Verify checksum if provided
     if let Some(expected) = expected_sha256 {
         let actual = hex::encode(hasher.finalize());
         if actual != expected.to_lowercase() {
-            // Clean up temp file
-            let _ = std::fs::remove_file(&temp_path);
-            anyhow::bail!(
-                "Checksum mismatch for {}: expected {}, got {}",
-                dest.display(),
-                expected,
-                actual
-            );
+            return Err(KarateError::ChecksumMismatch {
+                file: dest.display().to_string(),
+                expected: expected.to_string(),
+                actual,
+            }
+            .into());
         }
     }
 
-    // Move temp file to final destination
-    std::fs::rename(&temp_path, dest).with_context(|| {
+    std::fs::rename(temp_path, dest).with_context(|| {
         format!(
             "Failed to move {} to {}",
             temp_path.display(),

@@ -1,5 +1,6 @@
 //! Manifest parsing and management for karate.sh releases.json
 
+use crate::error::KarateError;
 use crate::platform::Platform;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -119,10 +120,21 @@ impl ReleasesManifest {
     }
 }
 
+/// The manifest URL in use: `KARATE_MANIFEST_URL` if set, else karate.sh.
+pub fn manifest_url() -> String {
+    std::env::var("KARATE_MANIFEST_URL").unwrap_or_else(|_| MANIFEST_URL.to_string())
+}
+
 /// Fetch manifest from karate.sh (or KARATE_MANIFEST_URL override for testing)
 pub async fn fetch_manifest() -> Result<ReleasesManifest> {
-    let url = std::env::var("KARATE_MANIFEST_URL").unwrap_or_else(|_| MANIFEST_URL.to_string());
-    fetch_manifest_from_url(&url).await
+    let url = manifest_url();
+    fetch_manifest_from_url(&url).await.map_err(|e| {
+        KarateError::Network(format!(
+            "Failed to fetch manifest from {url}: {e:#}\n\n\
+             Check your network connection or try again later."
+        ))
+        .into()
+    })
 }
 
 /// Fetch manifest from a specific URL
@@ -131,11 +143,7 @@ pub async fn fetch_manifest_from_url(url: &str) -> Result<ReleasesManifest> {
         .user_agent("karate-cli")
         .build()?;
 
-    let response = client
-        .get(url)
-        .send()
-        .await
-        .with_context(|| format!("Failed to fetch manifest from {}", url))?;
+    let response = client.get(url).send().await?;
 
     if !response.status().is_success() {
         anyhow::bail!(

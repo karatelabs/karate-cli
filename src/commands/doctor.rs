@@ -3,7 +3,7 @@
 use crate::cli::DoctorArgs;
 use crate::error::ExitCode;
 use crate::jre::{find_active_jre, find_system_jre, MIN_JAVA_VERSION};
-use crate::platform::{KaratePaths, Platform};
+use crate::platform::{highest_karate_jar, KaratePaths, Platform};
 use anyhow::Result;
 use console::style;
 use serde::Serialize;
@@ -13,6 +13,7 @@ struct DoctorReport {
     platform: PlatformInfo,
     karate_home: String,
     local_override: Option<String>,
+    local_overrides: Vec<String>,
     jre: Option<JreInfo>,
     system_jre: SystemJreInfo,
     karate_jar: Option<JarInfo>,
@@ -137,6 +138,11 @@ fn build_report() -> Result<DoctorReport> {
             .local
             .as_ref()
             .map(|p| p.to_string_lossy().to_string()),
+        local_overrides: paths
+            .local_overrides()
+            .into_iter()
+            .map(String::from)
+            .collect(),
         jre,
         system_jre,
         karate_jar,
@@ -146,27 +152,11 @@ fn build_report() -> Result<DoctorReport> {
 }
 
 fn find_karate_jar(paths: &KaratePaths) -> Option<JarInfo> {
-    if !paths.dist.exists() {
-        return None;
-    }
-
-    std::fs::read_dir(&paths.dist)
-        .ok()?
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            let path = e.path();
-            path.extension().map(|ext| ext == "jar").unwrap_or(false)
-                && path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|n| n.starts_with("karate-") && !n.contains("robot"))
-                    .unwrap_or(false)
-        })
-        .max_by_key(|e| e.file_name())
-        .map(|e| JarInfo {
-            path: e.path().to_string_lossy().to_string(),
-            filename: e.file_name().to_string_lossy().to_string(),
-        })
+    let (_, path) = highest_karate_jar(&paths.dist)?;
+    Some(JarInfo {
+        filename: path.file_name()?.to_string_lossy().to_string(),
+        path: path.to_string_lossy().to_string(),
+    })
 }
 
 fn list_jars(dir: &std::path::Path) -> Vec<String> {
@@ -205,7 +195,12 @@ fn print_report(report: &DoctorReport) {
     println!("{}", style("Karate Home").bold().underlined());
     println!("  Global: {}", report.karate_home);
     if let Some(local) = &report.local_override {
-        println!("  Local:  {} {}", local, style("(active)").cyan());
+        let label = if report.local_overrides.is_empty() {
+            style("(no dist/jre here, global used)".to_string()).dim()
+        } else {
+            style(format!("(overrides {})", report.local_overrides.join(", "))).yellow()
+        };
+        println!("  Local:  {} {}", local, label);
     }
     println!();
 

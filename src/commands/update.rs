@@ -5,14 +5,14 @@ use crate::commands::version::LAUNCHER_VERSION;
 use crate::config::load_merged_config;
 use crate::download::{download_file, extract_tar_gz, extract_zip, resolve_justj_jre};
 use crate::error::ExitCode;
-use crate::jre::MIN_JAVA_VERSION;
+use crate::jre::{install_jre_archive, MIN_JAVA_VERSION};
 use crate::manifest::{fetch_manifest, ReleasesManifest};
-use crate::platform::{KaratePaths, Os, Platform};
+use crate::platform::{highest_karate_jar, karate_jar_version, KaratePaths, Os, Platform};
 use anyhow::{Context, Result};
 use console::style;
 use std::collections::HashSet;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Valid items for update
 const VALID_ITEMS: &[&str] = &["jar", "jre", "cli"];
@@ -58,6 +58,9 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
     let check_jar = items.contains("jar");
     let check_jre = items.contains("jre");
     let check_cli = items.contains("cli");
+    if check_jar || check_jre {
+        paths.print_local_override_notice();
+    }
 
     // Clean up leftover .old binary from previous self-update (Windows)
     cleanup_old_binary();
@@ -77,9 +80,26 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
         None
     };
 
+    // A pinned karate_version is the exact JAR `run` uses (spec: Version Pinning), so
+    // update leaves the JARs alone rather than fetch one that would never run.
+    let pinned = (config.karate_version != "latest").then_some(config.karate_version.as_str());
+    if let (true, Some(pin)) = (check_jar, pinned) {
+        let hint = if paths.dist.join(format!("karate-{pin}.jar")).exists() {
+            "set karate_version to \"latest\" to follow the channel".to_string()
+        } else {
+            format!("not installed: karate setup --item jar --karate-version {pin}")
+        };
+        println!(
+            "  {} JAR: pinned to {} in config, not updated ({})",
+            style("-").dim(),
+            pin,
+            hint
+        );
+    }
+
     // Check JAR status
-    if check_jar {
-        let installed = get_installed_jar_version(&paths.dist);
+    if check_jar && pinned.is_none() {
+        let installed = highest_karate_jar(&paths.dist).map(|(version, _)| version);
         let latest = manifest
             .as_ref()
             .and_then(|m| m.get_latest_version("karate", channel))
@@ -264,7 +284,9 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
                 style(format!("[{}/{}]", step, total_steps)).bold().dim(),
                 status.latest_version
             );
-            update_karate_jar(&paths, channel).await?;
+            update_karate_jar(&paths, channel)
+                .await
+                .context("JAR not updated; the installed JARs are unchanged")?;
         }
     }
 
@@ -277,7 +299,9 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
                 style(format!("[{}/{}]", step, total_steps)).bold().dim(),
                 status.latest_version
             );
-            update_jre(&platform, &paths).await?;
+            update_jre(&platform, &paths)
+                .await
+                .context("JRE not updated; the installed JRE is unchanged")?;
         }
     }
 
@@ -296,7 +320,8 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
                 &status.latest_version,
                 manifest.as_ref().unwrap(),
             )
-            .await?;
+            .await
+            .context("CLI not updated; the installed binary is unchanged")?;
         }
     }
 
@@ -308,31 +333,6 @@ pub async fn run(args: UpdateArgs) -> Result<ExitCode> {
     );
 
     Ok(ExitCode::Success)
-}
-
-/// Get the installed JAR version from the dist directory
-fn get_installed_jar_version(dist_dir: &PathBuf) -> Option<String> {
-    if !dist_dir.exists() {
-        return None;
-    }
-
-    std::fs::read_dir(dist_dir)
-        .ok()?
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .find(|p| {
-            p.extension().map(|e| e == "jar").unwrap_or(false)
-                && p.file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|n| n.starts_with("karate-") && !n.contains("robot"))
-                    .unwrap_or(false)
-        })
-        .and_then(|p| {
-            p.file_stem()
-                .and_then(|s| s.to_str())
-                .and_then(|s| s.strip_prefix("karate-"))
-                .map(|s| s.to_string())
-        })
 }
 
 /// Get the installed JRE version from the jre directory
@@ -366,28 +366,24 @@ async fn update_karate_jar(paths: &KaratePaths, channel: &str) -> Result<()> {
         .get_jar_download("karate", version)
         .ok_or_else(|| anyhow::anyhow!("No download URL found for karate {}", version))?;
 
-    let jar_name = format!("karate-{}.jar", version);
-    println!("  Downloading {}...", jar_name);
-
-    // Remove old JAR(s) first
-    if paths.dist.exists() {
-        for entry in std::fs::read_dir(&paths.dist)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.extension().map(|e| e == "jar").unwrap_or(false) {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.starts_with("karate-") && !name.contains("robot") {
-                        let _ = std::fs::remove_file(&path);
-                    }
-                }
-            }
-        }
-    }
-
-    let dest = paths.dist.join(&jar_name);
-    download_file(url, &dest, Some(sha256)).await?;
+    println!("  Downloading karate-{}.jar...", version);
+    replace_karate_jar(&paths.dist, version, url, sha256).await?;
 
     println!("  {} JAR updated to {}", style("✓").green(), version);
+    Ok(())
+}
+
+/// Install `karate-<version>.jar` into `dist`, then remove the JARs it supersedes. A failed
+/// download or checksum mismatch leaves `dist` as it was.
+async fn replace_karate_jar(dist: &Path, version: &str, url: &str, sha256: &str) -> Result<()> {
+    let dest = dist.join(format!("karate-{version}.jar"));
+    download_file(url, &dest, Some(sha256)).await?;
+    for entry in std::fs::read_dir(dist)? {
+        let path = entry?.path();
+        if path != dest && karate_jar_version(&path).is_some() {
+            let _ = std::fs::remove_file(&path);
+        }
+    }
     Ok(())
 }
 
@@ -417,25 +413,10 @@ async fn update_jre(platform: &Platform, paths: &KaratePaths) -> Result<()> {
 
     download_file(&jre_info.download_url, &archive_path, None).await?;
 
-    // Remove old JRE directories
-    if paths.jre.exists() {
-        for entry in std::fs::read_dir(&paths.jre)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                let _ = std::fs::remove_dir_all(&path);
-            }
-        }
-    }
-
-    // Extract
     println!("  Extracting...");
-    let jre_dir = paths.jre.join(&jre_info.version_label);
-    std::fs::create_dir_all(&jre_dir)?;
-    extract_tar_gz(&archive_path, &jre_dir)?;
-
-    // Clean up archive
+    let installed = install_jre_archive(&archive_path, &paths.jre, &jre_info.version_label, true);
     let _ = std::fs::remove_file(&archive_path);
+    installed?;
 
     println!(
         "  {} JRE updated to {}",
@@ -575,4 +556,90 @@ fn find_binary_in_dir(dir: &std::path::Path, binary_name: &str) -> Result<PathBu
         binary_name,
         dir.display()
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn installed_jar_version_is_the_highest() {
+        let dist = tempfile::tempdir().unwrap();
+        for jar in [
+            "karate-2.1.4.jar",
+            "karate-2.1.10.jar",
+            "karate-robot-9.9.9.jar",
+        ] {
+            std::fs::write(dist.path().join(jar), b"jar").unwrap();
+        }
+        let (version, _) = highest_karate_jar(dist.path()).unwrap();
+        assert_eq!(version, "2.1.10");
+    }
+
+    /// Serves `body` to every request on a local port; returns the URL.
+    async fn serve(body: &'static [u8]) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/karate.jar", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            while let Ok((mut socket, _)) = listener.accept().await {
+                let mut request = [0u8; 1024];
+                let _ = socket.read(&mut request).await;
+                let head = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = socket.write_all(head.as_bytes()).await;
+                let _ = socket.write_all(body).await;
+            }
+        });
+        url
+    }
+
+    fn dist_with_old_jar() -> tempfile::TempDir {
+        let dist = tempfile::tempdir().unwrap();
+        std::fs::write(dist.path().join("karate-2.1.3.jar"), b"old").unwrap();
+        dist
+    }
+
+    fn names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().to_string())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[tokio::test]
+    async fn checksum_mismatch_leaves_the_installed_jar() {
+        let dist = dist_with_old_jar();
+        let url = serve(b"new").await;
+        let err = replace_karate_jar(dist.path(), "2.1.4", &url, &"0".repeat(64))
+            .await
+            .unwrap_err();
+        assert_eq!(crate::error::exit_code_for(&err), ExitCode::NetworkError);
+        assert_eq!(names(dist.path()), vec!["karate-2.1.3.jar"]);
+    }
+
+    #[tokio::test]
+    async fn unreachable_download_leaves_the_installed_jar() {
+        let dist = dist_with_old_jar();
+        let err = replace_karate_jar(dist.path(), "2.1.4", "http://127.0.0.1:9/k.jar", "00")
+            .await
+            .unwrap_err();
+        assert_eq!(crate::error::exit_code_for(&err), ExitCode::NetworkError);
+        assert_eq!(names(dist.path()), vec!["karate-2.1.3.jar"]);
+    }
+
+    #[tokio::test]
+    async fn verified_jar_replaces_the_old_one() {
+        let dist = dist_with_old_jar();
+        let url = serve(b"new").await;
+        let sha = hex::encode(<sha2::Sha256 as sha2::Digest>::digest(b"new"));
+        replace_karate_jar(dist.path(), "2.1.4", &url, &sha)
+            .await
+            .unwrap();
+        assert_eq!(names(dist.path()), vec!["karate-2.1.4.jar"]);
+    }
 }

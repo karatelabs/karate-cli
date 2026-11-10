@@ -54,7 +54,7 @@ async fn run() -> ExitCode {
         Ok(code) => code,
         Err(e) => {
             eprintln!("Error: {e:#}");
-            ExitCode::GeneralError
+            error::exit_code_for(&e)
         }
     }
 }

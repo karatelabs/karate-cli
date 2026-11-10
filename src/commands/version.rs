@@ -3,7 +3,7 @@
 use crate::cli::VersionArgs;
 use crate::error::ExitCode;
 use crate::jre::find_active_jre;
-use crate::platform::KaratePaths;
+use crate::platform::{highest_karate_jar, KaratePaths};
 use anyhow::Result;
 use console::style;
 use serde::Serialize;
@@ -33,31 +33,9 @@ pub async fn run(args: VersionArgs) -> Result<ExitCode> {
 
 fn build_version_info() -> Result<VersionInfo> {
     let paths = KaratePaths::new();
+    paths.print_local_override_notice();
 
-    // Get Karate JAR version from filename
-    let karate_jar = if paths.dist.exists() {
-        std::fs::read_dir(&paths.dist).ok().and_then(|entries| {
-            entries
-                .filter_map(|e| e.ok())
-                .filter_map(|e| {
-                    let name = e.file_name().to_string_lossy().to_string();
-                    if name.starts_with("karate-")
-                        && name.ends_with(".jar")
-                        && !name.contains("robot")
-                    {
-                        // Extract version from karate-X.Y.Z.jar
-                        let without_prefix = name.strip_prefix("karate-")?;
-                        let without_suffix = without_prefix.strip_suffix(".jar")?;
-                        Some(without_suffix.to_string())
-                    } else {
-                        None
-                    }
-                })
-                .max()
-        })
-    } else {
-        None
-    };
+    let karate_jar = highest_karate_jar(&paths.dist).map(|(version, _)| version);
 
     // Get JRE version
     let jre = find_active_jre()?.map(|j| j.version);

@@ -2,15 +2,16 @@
 
 use crate::cli::SetupArgs;
 use crate::config::load_merged_config;
-use crate::download::{download_file, extract_tar_gz, resolve_justj_jre};
+use crate::download::{download_file, resolve_justj_jre};
 use crate::error::ExitCode;
-use crate::jre::{find_active_jre, find_system_jre, JreSource, MIN_JAVA_VERSION};
-use crate::manifest::{fetch_manifest, MANIFEST_URL};
-use crate::platform::{KaratePaths, Platform};
+use crate::jre::{
+    find_active_jre, find_system_jre, install_jre_archive, JreSource, MIN_JAVA_VERSION,
+};
+use crate::manifest::{fetch_manifest, manifest_url};
+use crate::platform::{highest_karate_jar, KaratePaths, Platform};
 use anyhow::Result;
 use console::style;
 use std::collections::HashSet;
-use std::path::PathBuf;
 
 /// Default Java version for Karate (21 required for Karate 1.5.2+)
 const DEFAULT_JAVA_VERSION: u8 = MIN_JAVA_VERSION;
@@ -69,6 +70,7 @@ async fn run_setup_items(
         style(format!("{:?}", platform.arch)).green()
     );
     println!("  Home: {}", style(paths.home.display()).dim());
+    paths.print_local_override_notice();
     println!(
         "  Items: {}",
         style(items.iter().cloned().collect::<Vec<_>>().join(", ")).cyan()
@@ -155,7 +157,7 @@ async fn run_setup_items(
                 true
             }
         } else {
-            let existing_jar = find_karate_jar(&paths.dist);
+            let existing_jar = highest_karate_jar(&paths.dist);
             if existing_jar.is_some() && !force {
                 println!("  {} Karate JAR already installed", style("✓").green());
                 false
@@ -199,6 +201,7 @@ async fn run_setup_wizard() -> Result<ExitCode> {
         style(format!("{:?}", platform.arch)).green()
     );
     println!("  Home: {}", style(paths.home.display()).dim());
+    paths.print_local_override_notice();
     println!();
 
     // Ensure directories exist
@@ -240,7 +243,7 @@ async fn run_setup_wizard() -> Result<ExitCode> {
     println!();
     println!("{} Setting up Karate JAR...", style("[2/2]").bold().dim());
 
-    let existing_jar = find_karate_jar(&paths.dist);
+    let existing_jar = highest_karate_jar(&paths.dist);
     if existing_jar.is_some() {
         println!("  {} Karate JAR already installed", style("✓").green());
     } else {
@@ -277,12 +280,9 @@ async fn download_jre(platform: &Platform, paths: &KaratePaths, java_version: u8
 
     // Extract - use version_label for directory name (e.g., 21.0.9-macosx-aarch64)
     println!("  Extracting...");
-    let jre_dir = paths.jre.join(&jre_info.version_label);
-    std::fs::create_dir_all(&jre_dir)?;
-    extract_tar_gz(&archive_path, &jre_dir)?;
-
-    // Clean up archive
+    let installed = install_jre_archive(&archive_path, &paths.jre, &jre_info.version_label, false);
     let _ = std::fs::remove_file(&archive_path);
+    installed?;
 
     println!(
         "  {} JRE {} installed",
@@ -302,16 +302,9 @@ async fn download_karate_jar(
     let config = load_merged_config()?;
     let channel = channel_override.unwrap_or(&config.channel);
 
-    println!("  Fetching release manifest from karate.sh...");
+    println!("  Fetching release manifest from {}...", manifest_url());
 
-    let manifest = fetch_manifest().await.map_err(|e| {
-        anyhow::anyhow!(
-            "Failed to fetch manifest from {}: {}\n\n\
-            Check your network connection or try again later.",
-            MANIFEST_URL,
-            e
-        )
-    })?;
+    let manifest = fetch_manifest().await?;
 
     // Determine version: CLI flag → config pin → latest from channel
     let version = if let Some(v) = version_override {
@@ -351,7 +344,7 @@ async fn download_karate_jar(
                 "No download URL found for karate {} in manifest.\n\
                 Check available versions at: {}",
                 version,
-                MANIFEST_URL
+                manifest_url()
             )
         })?;
 
@@ -372,21 +365,25 @@ async fn download_karate_jar(
     Ok(())
 }
 
-/// Find existing Karate JAR in dist directory
-fn find_karate_jar(dist_dir: &PathBuf) -> Option<PathBuf> {
-    if !dist_dir.exists() {
-        return None;
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    std::fs::read_dir(dist_dir)
-        .ok()?
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .find(|p| {
-            p.extension().map(|e| e == "jar").unwrap_or(false)
-                && p.file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|n| n.starts_with("karate-") && !n.contains("robot"))
-                    .unwrap_or(false)
-        })
+    #[tokio::test]
+    async fn manifest_error_names_the_url_used() {
+        let home = tempfile::tempdir().unwrap();
+        let bogus = "http://127.0.0.1:9/bogus-manifest.json";
+        std::env::set_var("KARATE_HOME", home.path());
+        std::env::set_var("KARATE_MANIFEST_URL", bogus);
+        let err = download_karate_jar(&KaratePaths::new(), Some("2.1.4"), None)
+            .await
+            .unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(msg.contains(bogus), "{msg}");
+        assert!(!msg.contains("karate.sh"), "{msg}");
+        assert_eq!(
+            crate::error::exit_code_for(&err),
+            crate::error::ExitCode::NetworkError
+        );
+    }
 }

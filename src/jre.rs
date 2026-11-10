@@ -282,6 +282,42 @@ pub fn list_installed_jres() -> Result<Vec<InstalledJre>> {
     Ok(jres)
 }
 
+/// Extract a JRE archive to `jre_root/<label>`. It is unpacked into a staging directory and
+/// must hold a java executable before anything installed is touched; only then are the old
+/// JREs (with `replace_others`) or an existing `<label>` removed and the staging dir renamed in.
+pub fn install_jre_archive(
+    archive: &Path,
+    jre_root: &Path,
+    label: &str,
+    replace_others: bool,
+) -> Result<PathBuf> {
+    let os = Platform::detect()?.os;
+    // No '-' in the name, so `list_installed_jres` never mistakes it for a JRE.
+    let staging = jre_root.join(".staging");
+    let _ = std::fs::remove_dir_all(&staging);
+    let staged = crate::download::extract_tar_gz(archive, &staging).and_then(|_| {
+        find_java_executable(&staging, &os)
+            .map(|_| ())
+            .with_context(|| format!("No java executable in {}", archive.display()))
+    });
+    if let Err(e) = staged {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(e);
+    }
+
+    let target = jre_root.join(label);
+    for entry in std::fs::read_dir(jre_root)? {
+        let path = entry?.path();
+        if path.is_dir() && path != staging && (replace_others || path == target) {
+            std::fs::remove_dir_all(&path)
+                .with_context(|| format!("Failed to remove {}", path.display()))?;
+        }
+    }
+    std::fs::rename(&staging, &target)
+        .with_context(|| format!("Failed to move the new JRE to {}", target.display()))?;
+    Ok(target)
+}
+
 /// Parse JRE directory name into (version, platform).
 fn parse_jre_dir_name(name: &str) -> Option<(String, String)> {
     // Format: version-os-arch (e.g., 21.0.9-macosx-aarch64)
@@ -366,4 +402,74 @@ fn walkdir(dir: &PathBuf, target: &str) -> Result<Vec<PathBuf>> {
 #[allow(dead_code)]
 pub fn jre_dir_name(version: &str, platform: &Platform) -> String {
     format!("{}-{}", version, platform.manifest_key())
+}
+
+#[cfg(test)]
+mod install_tests {
+    use super::*;
+
+    fn tar_gz(dir: &Path, entries: &[(&str, &[u8])]) -> PathBuf {
+        let path = dir.join("jre.tar.gz");
+        let gz = flate2::write::GzEncoder::new(
+            std::fs::File::create(&path).unwrap(),
+            flate2::Compression::fast(),
+        );
+        let mut tar = tar::Builder::new(gz);
+        for (name, body) in entries {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(body.len() as u64);
+            header.set_mode(0o755);
+            header.set_cksum();
+            tar.append_data(&mut header, name, *body).unwrap();
+        }
+        tar.into_inner().unwrap().finish().unwrap();
+        path
+    }
+
+    fn jre_root_with_old() -> tempfile::TempDir {
+        let root = tempfile::tempdir().unwrap();
+        let java = Platform::detect().unwrap().os.java_executable();
+        let old_bin = root.path().join("jre/21.0.9-macosx-aarch64/bin");
+        std::fs::create_dir_all(&old_bin).unwrap();
+        std::fs::write(old_bin.join(java), b"old").unwrap();
+        root
+    }
+
+    fn installed(root: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(root.join("jre"))
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().to_string())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn corrupt_archive_leaves_the_installed_jre() {
+        let root = jre_root_with_old();
+        let archive = root.path().join("jre.tar.gz");
+        std::fs::write(&archive, b"not a tarball").unwrap();
+        let jre = root.path().join("jre");
+        assert!(install_jre_archive(&archive, &jre, "21.0.13-macosx-aarch64", true).is_err());
+        assert_eq!(installed(root.path()), vec!["21.0.9-macosx-aarch64"]);
+    }
+
+    #[test]
+    fn archive_without_java_leaves_the_installed_jre() {
+        let root = jre_root_with_old();
+        let archive = tar_gz(root.path(), &[("README", b"hi")]);
+        let jre = root.path().join("jre");
+        assert!(install_jre_archive(&archive, &jre, "21.0.13-macosx-aarch64", true).is_err());
+        assert_eq!(installed(root.path()), vec!["21.0.9-macosx-aarch64"]);
+    }
+
+    #[test]
+    fn complete_archive_replaces_the_old_jre() {
+        let root = jre_root_with_old();
+        let java = Platform::detect().unwrap().os.java_executable();
+        let archive = tar_gz(root.path(), &[(&format!("bin/{java}"), b"new")]);
+        let jre = root.path().join("jre");
+        install_jre_archive(&archive, &jre, "21.0.13-macosx-aarch64", true).unwrap();
+        assert_eq!(installed(root.path()), vec!["21.0.13-macosx-aarch64"]);
+    }
 }

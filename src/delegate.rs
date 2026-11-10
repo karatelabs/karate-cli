@@ -3,7 +3,7 @@
 use crate::config::load_merged_config;
 use crate::error::{ExitCode, KarateError};
 use crate::jre::find_active_jre;
-use crate::platform::KaratePaths;
+use crate::platform::{highest_karate_jar, KaratePaths};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -11,6 +11,7 @@ use std::process::Command;
 /// Run a delegated command through the JVM.
 pub async fn run(args: Vec<String>, extra_classpath: &[String]) -> Result<ExitCode> {
     let paths = KaratePaths::new();
+    paths.print_local_override_notice();
     let config = load_merged_config()?;
 
     // Find JRE - check config override first
@@ -97,32 +98,16 @@ fn find_karate_jar(dist_dir: &Path, karate_version: &str) -> Result<PathBuf> {
         if pinned.exists() {
             return Ok(pinned);
         }
-        anyhow::bail!(
+        return Err(KarateError::Config(format!(
             "karate_version is pinned to {karate_version} in config, but {} does not exist.\n\
              Install it with: karate setup --item jar --karate-version {karate_version}",
             pinned.display()
-        );
+        ))
+        .into());
     }
 
-    // Find any karate-*.jar in dist (excluding robot JARs)
-    let mut jars: Vec<_> = std::fs::read_dir(dist_dir)?
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .filter(|p| {
-            p.extension().map(|e| e == "jar").unwrap_or(false)
-                && p.file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|n| n.starts_with("karate-") && !n.contains("robot"))
-                    .unwrap_or(false)
-        })
-        .collect();
-
-    // Sort by name (version) descending to get latest
-    jars.sort();
-    jars.reverse();
-
-    jars.into_iter()
-        .next()
+    highest_karate_jar(dist_dir)
+        .map(|(_, path)| path)
         .ok_or_else(|| KarateError::NotBootstrapped.into())
 }
 
@@ -175,6 +160,13 @@ mod tests {
         let dist = dist_with(&["karate-1.5.2.jar", "karate-2.1.1.jar"]);
         let jar = find_karate_jar(dist.path(), "latest").unwrap();
         assert_eq!(jar.file_name().unwrap(), "karate-2.1.1.jar");
+    }
+
+    #[test]
+    fn latest_compares_versions_numerically() {
+        let dist = dist_with(&["karate-2.1.4.jar", "karate-2.1.10.jar"]);
+        let jar = find_karate_jar(dist.path(), "latest").unwrap();
+        assert_eq!(jar.file_name().unwrap(), "karate-2.1.10.jar");
     }
 
     #[test]

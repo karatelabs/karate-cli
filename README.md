@@ -71,6 +71,8 @@ karate mock server.js         # Start mock server
 Global config: `~/.karate/karate-cli.json`
 Project config: `.karate/karate-cli.json`
 
+A project's `.karate/dist/` or `.karate/jre/` replaces the global one when you run from that directory; Karate prints a `note:` line whenever it does. Remove them, or run from another directory, to use the global home.
+
 ```json
 {
   "channel": "stable",

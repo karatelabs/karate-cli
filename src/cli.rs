@@ -8,9 +8,9 @@ use clap::{Args, Parser, Subcommand};
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
-    /// Disable colored output (also honors the NO_COLOR env var — any non-empty value,
-    /// per https://no-color.org/; clap's env binding would reject NO_COLOR=1, so the
-    /// env check is manual in main.rs)
+    // NO_COLOR is checked by hand in main.rs: clap's env binding would reject NO_COLOR=1,
+    // and https://no-color.org/ treats any non-empty value as set.
+    /// Disable colored output (also honors NO_COLOR)
     #[arg(long, global = true)]
     pub no_color: bool,
 
@@ -69,7 +69,7 @@ pub struct SetupArgs {
     #[arg(long, short)]
     pub force: bool,
 
-    /// Specific Java major version to install (e.g., 17, 21)
+    /// Java major version to install (21 or newer)
     #[arg(long = "java-version")]
     pub java_version: Option<String>,
 
@@ -193,4 +193,32 @@ pub struct VersionArgs {
     /// Output as JSON
     #[arg(long)]
     pub json: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    fn all_help(cmd: &mut clap::Command, out: &mut String) {
+        out.push_str(&cmd.render_long_help().to_string());
+        for sub in cmd.get_subcommands_mut() {
+            all_help(sub, out);
+        }
+    }
+
+    #[test]
+    fn help_text_has_no_implementation_notes() {
+        let mut cmd = Cli::command();
+        cmd.build();
+        let mut help = String::new();
+        all_help(&mut cmd, &mut help);
+        for leak in ["main.rs", "clap", "no-color.org"] {
+            assert!(!help.contains(leak), "help mentions {leak:?}:\n{help}");
+        }
+        assert!(help.contains("Disable colored output (also honors NO_COLOR)"));
+        let min = crate::jre::MIN_JAVA_VERSION;
+        assert!(help.contains(&format!("({min} or newer)")), "{help}");
+        assert!(!help.contains("17"), "help mentions Java 17");
+    }
 }

@@ -430,6 +430,8 @@ Karate CLI uses a two-level resolution for resources (dist, jre, ext):
 - JRE: loaded from `~/.karate/jre/` (global fallback)
 - Dist: loaded from `~/.karate/dist/` (global fallback)
 
+A `.karate/` folder overrides nothing by existing: one holding only other files (a `karate.lic`, a `karate-cli.json`) leaves `dist/` and `jre/` global. When `.karate/dist/` or `.karate/jre/` does take over, `setup`, `update`, `version` and delegated commands print one `note:` line to stderr naming the overridden resources and the global home they replace, and `doctor` labels the local folder with what it overrides.
+
 This allows:
 - Project-specific extensions without duplicating JRE/JAR
 - Development testing with `KARATE_HOME=./home/.karate`
@@ -590,7 +592,7 @@ Users can pin a specific version in their config:
 }
 ```
 
-Setting `karate_version` to anything other than `"latest"` will use that exact version.
+Setting `karate_version` to anything other than `"latest"` will use that exact version. While a pin is set, `karate update` leaves the JARs alone and says so; it never deletes the pinned JAR.
 
 ---
 
